@@ -549,9 +549,19 @@ class Formatter(ast_nodes.ASTVisitor):
     def visit_CycleTag(self, node):
         """Format a cycle tag."""
 
-        values_str = " ".join(
-            repr(v) if isinstance(v, str) else str(v) for v in node.values
-        )
+        def format_value(v):
+            """Format a cycle value (Literal or Expression)."""
+            if isinstance(v, ast_nodes.Literal):
+                if v.type == "string":
+                    return repr(v.value)  # Adds quotes
+                return str(v.value)
+            elif isinstance(v, ast_nodes.Expression):
+                # Variable reference - just use the base name
+                return v.base
+            else:
+                raise TypeError(f"Invalid cycle value type: {type(v)}")
+
+        values_str = " ".join(format_value(v) for v in node.values)
 
         if self.options.space_in_template_tags:
             if node.cycle_name:

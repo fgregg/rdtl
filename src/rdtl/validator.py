@@ -359,8 +359,204 @@ class RDTLValidator:
             ]
             self.errors.append(f"Line {line}, col {col}: Unclosed '{type_name}'")
 
+    def _handle_html_opening_tag(
+        self, stack: list[StackFrame], html_tag: str, match_start: int, line: int, col: int
+    ) -> None:
+        """Handle an HTML opening tag during nesting validation.
+
+        Args:
+            stack: The current nesting stack to push onto.
+            html_tag: The HTML tag name.
+            match_start: Position in the content where the tag was found.
+            line: Line number of the tag.
+            col: Column number of the tag.
+        """
+        tag_lower = html_tag.lower()
+        stack.append(StackFrame("html", tag_lower, match_start, line, col))
+
+    def _handle_html_closing_tag(
+        self, stack: list[StackFrame], html_tag: str, line: int, col: int
+    ) -> None:
+        """Handle an HTML closing tag during nesting validation.
+
+        Checks for proper nesting in both strict and lenient modes.
+        In strict mode, requires LIFO matching (most recent opening tag).
+        In lenient mode, finds the most recent matching opening tag and
+        detects incorrectly interleaved template blocks.
+
+        Args:
+            stack: The current nesting stack to pop from.
+            html_tag: The HTML tag name.
+            line: Line number of the closing tag.
+            col: Column number of the closing tag.
+        """
+        tag_lower = html_tag.lower()
+
+        if not stack:
+            self.errors.append(
+                f"Line {line}, col {col}: Closing tag </{html_tag}> "
+                "without matching opening tag"
+            )
+            return
+
+        # In strict mode, require exact LIFO matching
+        if self.strict_html:
+            # The closing tag must match the most recent opening tag
+            if stack[-1].type != "html" or stack[-1].name != tag_lower:
+                expected = (
+                    f"</{stack[-1].name}>"
+                    if stack[-1].type == "html"
+                    else f"{{%% end{stack[-1].name} %%}}"
+                )
+                self.errors.append(
+                    f"Line {line}, col {col}: Expected {expected} but found </{html_tag}>"
+                )
+                return
+
+            # Pop the matching tag
+            stack.pop()
+        else:
+            # Lenient mode: Find matching opening tag
+            found = False
+            for i in range(len(stack) - 1, -1, -1):
+                if stack[i].type == "html" and stack[i].name == tag_lower:
+                    # Check if any template blocks are incorrectly interleaved
+                    for j in range(i + 1, len(stack)):
+                        if stack[j].type != "html":
+                            self.errors.append(
+                                f"Line {line}, col {col}: HTML tag </{html_tag}> "
+                                f"closes before template block '{{{{% {stack[j].name} %}}}}' "
+                                f"from line {stack[j].line}"
+                            )
+
+                    # Pop everything from i onwards
+                    stack[:] = stack[:i]
+                    found = True
+                    break
+
+            if not found:
+                self.errors.append(
+                    f"Line {line}, col {col}: Closing tag </{html_tag}> "
+                    "without matching opening tag"
+                )
+
+    def _handle_template_opening_tag(
+        self, stack: list[StackFrame], template_tag: str, match_start: int, line: int, col: int
+    ) -> None:
+        """Handle a template block opening tag during nesting validation.
+
+        Args:
+            stack: The current nesting stack to push onto.
+            template_tag: The template tag name (e.g., 'if', 'for', 'block').
+            match_start: Position in the content where the tag was found.
+            line: Line number of the tag.
+            col: Column number of the tag.
+        """
+        tag_lower = template_tag.lower()
+        stack.append(StackFrame("template", tag_lower, match_start, line, col))
+
+    def _handle_template_closing_tag(
+        self, stack: list[StackFrame], template_tag: str, line: int, col: int
+    ) -> None:
+        """Handle a template block closing tag during nesting validation.
+
+        Validates that the closing tag matches an opening tag and detects
+        incorrectly interleaved HTML or other template blocks.
+
+        Args:
+            stack: The current nesting stack to pop from.
+            template_tag: The template tag name (e.g., 'endif', 'endfor').
+            line: Line number of the closing tag.
+            col: Column number of the closing tag.
+        """
+        tag_lower = template_tag.lower()
+        block_type = tag_lower[3:]  # Remove 'end' prefix
+
+        # Look for matching opening block in stack
+        found = False
+        for i in range(len(stack) - 1, -1, -1):
+            if stack[i].type == "template" and stack[i].name == block_type:
+                # Check if any HTML or other template blocks are incorrectly interleaved
+                for j in range(i + 1, len(stack)):
+                    if stack[j].type == "html":
+                        self.errors.append(
+                            f"Line {line}, col {col}: Template block '{{{{% end{block_type} %}}}}' "
+                            f"closes before HTML tag <{stack[j].name}> "
+                            f"from line {stack[j].line}"
+                        )
+                    elif stack[j].type == "template":
+                        self.errors.append(
+                            f"Line {line}, col {col}: Template block '{{{{% end{block_type} %}}}}' "
+                            f"closes before template block '{{{{% {stack[j].name} %}}}}' "
+                            f"from line {stack[j].line}"
+                        )
+                # Pop everything from i onwards
+                stack[:] = stack[:i]
+                found = True
+                break
+
+        if not found:
+            expected = (
+                f"end{stack[-1].name}"
+                if stack and stack[-1].type == "template"
+                else "nothing"
+            )
+            self.errors.append(
+                f"Line {line}, col {col}: Unexpected '{{{{% {template_tag} %}}}}', "
+                f"expected '{expected}'"
+            )
+
+    def _handle_contextual_tag(
+        self, stack: list[StackFrame], template_tag: str, line: int, col: int
+    ) -> None:
+        """Handle contextual template tags (else, elif, empty) during nesting validation.
+
+        These tags are only valid within specific block contexts:
+        - else/elif: must be inside an 'if' block
+        - empty: must be inside a 'for' block
+
+        Args:
+            stack: The current nesting stack to check for parent blocks.
+            template_tag: The template tag name ('else', 'elif', or 'empty').
+            line: Line number of the tag.
+            col: Column number of the tag.
+        """
+        tag_lower = template_tag.lower()
+
+        # Validate contextual requirements
+        if tag_lower in ("else", "elif"):
+            if not any(f.type == "template" and f.name == "if" for f in stack):
+                self.errors.append(
+                    f"Line {line}, col {col}: '{{{{% {template_tag} %}}}}' "
+                    "outside of if block"
+                )
+        elif tag_lower == "empty":
+            if not any(f.type == "template" and f.name == "for" for f in stack):
+                self.errors.append(
+                    f"Line {line}, col {col}: '{{{{% empty %}}}}' outside of for block"
+                )
+
     def _check_proper_nesting(self):
-        """Verify proper nesting of HTML and template blocks."""
+        """Verify proper nesting of HTML and template blocks.
+
+        This method validates that all HTML tags and Django template blocks are
+        properly nested and closed. It operates in two modes:
+
+        - Strict mode: Requires perfect LIFO nesting (every closing tag must
+          match the most recently opened tag).
+        - Lenient mode: Allows HTML tags to close out of strict order, but
+          still detects incorrectly interleaved HTML and template blocks.
+
+        The validation process:
+        1. Masks attribute values to prevent false matches from template
+           syntax within attributes.
+        2. Scans the template for HTML tags, template block tags, and
+           contextual tags (else, elif, empty).
+        3. Maintains a stack of open tags and validates each closing tag
+           against the stack.
+        4. Reports errors for unclosed tags, mismatched nesting, and
+           contextual tags appearing outside their required blocks.
+        """
         stack: list[StackFrame] = []
 
         # Create a version of content with attribute values masked
@@ -389,59 +585,10 @@ class RDTLValidator:
 
                 # Opening tag
                 if not html_close:
-                    stack.append(
-                        StackFrame("html", tag_lower, match.start(), line, col)
-                    )
-
+                    self._handle_html_opening_tag(stack, html_tag, match.start(), line, col)
                 # Closing tag
                 else:
-                    if not stack:
-                        self.errors.append(
-                            f"Line {line}, col {col}: Closing tag </{html_tag}> "
-                            "without matching opening tag"
-                        )
-                        continue
-
-                    # In strict mode, require exact LIFO matching
-                    if self.strict_html:
-                        # The closing tag must match the most recent opening tag
-                        if stack[-1].type != "html" or stack[-1].name != tag_lower:
-                            expected = (
-                                f"</{stack[-1].name}>"
-                                if stack[-1].type == "html"
-                                else f"{{%% end{stack[-1].name} %%}}"
-                            )
-                            self.errors.append(
-                                f"Line {line}, col {col}: Expected {expected} but found </{html_tag}>"
-                            )
-                            continue
-
-                        # Pop the matching tag
-                        stack.pop()
-                    else:
-                        # Lenient mode: Find matching opening tag
-                        found = False
-                        for i in range(len(stack) - 1, -1, -1):
-                            if stack[i].type == "html" and stack[i].name == tag_lower:
-                                # Check if any template blocks are incorrectly interleaved
-                                for j in range(i + 1, len(stack)):
-                                    if stack[j].type != "html":
-                                        self.errors.append(
-                                            f"Line {line}, col {col}: HTML tag </{html_tag}> "
-                                            f"closes before template block '{{{{% {stack[j].name} %}}}}' "
-                                            f"from line {stack[j].line}"
-                                        )
-
-                                # Pop everything from i onwards
-                                stack = stack[:i]
-                                found = True
-                                break
-
-                        if not found:
-                            self.errors.append(
-                                f"Line {line}, col {col}: Closing tag </{html_tag}> "
-                                "without matching opening tag"
-                            )
+                    self._handle_html_closing_tag(stack, html_tag, line, col)
 
             # Handle template tags
             elif template_tag:
@@ -449,66 +596,13 @@ class RDTLValidator:
 
                 # Opening block tag
                 if tag_lower in self.ALLOWED_BLOCKS:
-                    stack.append(
-                        StackFrame("template", tag_lower, match.start(), line, col)
-                    )
-
+                    self._handle_template_opening_tag(stack, template_tag, match.start(), line, col)
                 # Closing block tag
                 elif tag_lower.startswith("end"):
-                    block_type = tag_lower[3:]  # Remove 'end' prefix
-
-                    # Look for matching opening block in stack
-                    found = False
-                    for i in range(len(stack) - 1, -1, -1):
-                        if stack[i].type == "template" and stack[i].name == block_type:
-                            # Check if any HTML or other template blocks are incorrectly interleaved
-                            for j in range(i + 1, len(stack)):
-                                if stack[j].type == "html":
-                                    self.errors.append(
-                                        f"Line {line}, col {col}: Template block '{{{{% end{block_type} %}}}}' "
-                                        f"closes before HTML tag <{stack[j].name}> "
-                                        f"from line {stack[j].line}"
-                                    )
-                                elif stack[j].type == "template":
-                                    self.errors.append(
-                                        f"Line {line}, col {col}: Template block '{{{{% end{block_type} %}}}}' "
-                                        f"closes before template block '{{{{% {stack[j].name} %}}}}' "
-                                        f"from line {stack[j].line}"
-                                    )
-                            # Pop everything from i onwards
-                            stack = stack[:i]
-                            found = True
-                            break
-
-                    if not found:
-                        expected = (
-                            f"end{stack[-1].name}"
-                            if stack and stack[-1].type == "template"
-                            else "nothing"
-                        )
-                        self.errors.append(
-                            f"Line {line}, col {col}: Unexpected '{{{{% {template_tag} %}}}}', "
-                            f"expected '{expected}'"
-                        )
-
+                    self._handle_template_closing_tag(stack, template_tag, line, col)
                 # Context-dependent single tags that must appear inside specific blocks
                 elif tag_lower in ("else", "elif", "empty"):
-                    # Validate contextual requirements
-                    if tag_lower in ("else", "elif"):
-                        if not any(
-                            f.type == "template" and f.name == "if" for f in stack
-                        ):
-                            self.errors.append(
-                                f"Line {line}, col {col}: '{{{{% {template_tag} %}}}}' "
-                                "outside of if block"
-                            )
-                    elif tag_lower == "empty":
-                        if not any(
-                            f.type == "template" and f.name == "for" for f in stack
-                        ):
-                            self.errors.append(
-                                f"Line {line}, col {col}: '{{{{% empty %}}}}' outside of for block"
-                            )
+                    self._handle_contextual_tag(stack, template_tag, line, col)
                 # All other simple tags are accepted (two-phase approach)
 
         # Check for unclosed blocks

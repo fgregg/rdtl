@@ -226,7 +226,47 @@ class Parser:
     # ========================================================================
 
     def parse_html_element(self) -> ast_nodes.HTMLElement | ast_nodes.VoidElement:
-        """Parse an HTML element with opening and closing tags."""
+        """Parse HTML elements with automatic void element detection.
+
+        This method handles all HTML element parsing, automatically detecting
+        void/self-closing elements and treating them specially. Void elements
+        (like <img>, <br>, <input>) don't have closing tags in HTML5.
+
+        Void Element Detection:
+            The parser maintains a VOID_ELEMENTS set of HTML5 void elements:
+            area, base, br, col, embed, hr, img, input, link, meta, param,
+            source, track, wbr.
+
+            When a void element is detected, returns VoidElement immediately
+            without expecting a closing tag. For all other elements, expects
+            matching closing tags with name verification.
+
+        Tag Name Matching:
+            Closing tags must match opening tags exactly (case-insensitive):
+            <div>...</div> ✓
+            <div>...</DIV> ✓
+            <div>...</span> ✗ ParseError
+
+        Nesting:
+            Supports arbitrary nesting of HTML elements and template tags:
+            <div>
+                {% if user %}
+                    <p>{{ user.name }}</p>
+                {% endif %}
+            </div>
+
+        Returns:
+            VoidElement: For void elements (no closing tag expected).
+            HTMLElement: For normal elements with children and closing tag.
+
+        Raises:
+            ParseError: If closing tag is missing or mismatched.
+
+        Examples:
+            <img src="photo.jpg"> → VoidElement('img', [Attribute('src', 'photo.jpg')])
+            <div class="box">text</div> → HTMLElement('div', [...], [TextNode('text')])
+            <p>Hello {{ name }}</p> → HTMLElement('p', [], [TextNode('Hello '), Variable(...)])
+        """
         open_token = self.expect(TokenType.HTML_OPEN_TAG)
         tag_name = open_token.value
 
@@ -275,7 +315,42 @@ class Parser:
         return ast_nodes.VoidElement(tag_name=tag_name, attributes=attributes)
 
     def parse_attributes(self) -> list[ast_nodes.Attribute]:
-        """Parse HTML attributes (supports both static and dynamic names)."""
+        """Parse HTML element attributes with support for dynamic attribute names.
+
+        Attributes can have:
+        - Static names: class, id, data-value
+        - Dynamic names: {{ attr_name }} (RDTL extension)
+        - Values: Quoted strings or None for boolean attributes
+        - Boolean attributes: disabled, checked, readonly (no value)
+
+        Dynamic Attribute Names:
+            RDTL extends HTML to allow computed attribute names using
+            Django template variables:
+            <div {{ dynamic_attr }}="value">
+            <button {{ "disabled" if not active else "" }}>
+
+            These are marked with is_dynamic_name=True in the AST.
+
+        Boolean Attributes:
+            HTML5 boolean attributes (disabled, checked, etc.) can appear
+            without values:
+            <input disabled> → Attribute('disabled', value=None)
+            <input disabled="disabled"> → Attribute('disabled', value='disabled')
+
+        Attribute Value Parsing:
+            Values are always strings after lexing. The lexer handles:
+            - Double-quoted: class="foo"
+            - Single-quoted: class='foo'
+            - Unquoted: class=foo (lexer limitation, not standard HTML)
+
+        Returns:
+            List of Attribute nodes with name, optional value, and dynamic flag.
+
+        Examples:
+            class="container" → [Attribute('class', 'container', is_dynamic_name=False)]
+            disabled → [Attribute('disabled', None, is_dynamic_name=False)]
+            {{ attr }}="val" → [Attribute('{{ attr }}', 'val', is_dynamic_name=True)]
+        """
         attributes = []
 
         while self.match(TokenType.ATTR_NAME) or self.match(
@@ -334,11 +409,71 @@ class Parser:
         return ast_nodes.Variable(expression=expression, filters=filters)
 
     def parse_filter(self) -> ast_nodes.Filter:
-        """Parse a filter: filter_name or filter_name:arg1,arg2."""
+        """Parse Django template filters with optional arguments.
+
+        Syntax:
+            |filter_name
+            |filter_name:arg
+            |filter_name:arg1,arg2,arg3
+
+        Filters:
+            Filters transform variable values during template rendering.
+            They follow the pipe (|) symbol and can take arguments separated
+            by colons and commas.
+
+        Filter Name:
+            Must be a valid identifier matching a registered filter function:
+            - Built-in: upper, lower, title, length, date, truncatewords, etc.
+            - Custom: Registered via template library loading
+
+        Arguments:
+            Filters can take zero or more arguments:
+            - No args: {{ value|upper }} - Just the filter name
+            - One arg: {{ text|truncatewords:10 }} - Colon separates arg
+            - Multiple args: {{ text|slice:1,3 }} - Comma separates args
+
+        Argument Types:
+            Filter arguments can be:
+            - Strings: |default:"no value"
+            - Numbers: |truncatewords:30
+            - Identifiers: |default:fallback_var (variable reference)
+            - Booleans: Not commonly used in Django filters
+
+        Chaining:
+            Multiple filters can be chained; each is parsed separately:
+            {{ text|lower|truncatewords:5 }}
+            Parsed as: Variable with filters [lower, truncatewords(5)]
+
+        Common Examples:
+            |upper - Uppercase transformation
+            |lower - Lowercase transformation
+            |title - Title case transformation
+            |length - Get length of sequence
+            |default:"N/A" - Default value if variable is falsy
+            |truncatewords:10 - Truncate to 10 words
+            |date:"Y-m-d" - Format date
+            |join:", " - Join list with separator
+
+        Returns:
+            Filter AST node with name and optional args list.
+
+        Raises:
+            ParseError: If filter syntax is malformed.
+
+        Examples:
+            {{ value|upper }}
+            → Filter(name='upper', args=[])
+
+            {{ text|truncatewords:30 }}
+            → Filter(name='truncatewords', args=[30])
+
+            {{ items|slice:1,3 }}
+            → Filter(name='slice', args=[1, 3])
+        """
         name_token = self.expect(TokenType.IDENTIFIER)
         name = name_token.value
 
-        args = []
+        args: list[str | int | float | bool | ast_nodes.Expression | ast_nodes.Literal] = []
         if self.match(TokenType.COLON):
             self.advance()  # :
 
@@ -353,7 +488,52 @@ class Parser:
         return ast_nodes.Filter(name=name, args=args)
 
     def parse_filter_arg(self) -> str | int | float:
-        """Parse a filter argument (string, number, or identifier)."""
+        """Parse individual filter arguments (strings, numbers, or identifiers).
+
+        Filter arguments can be:
+        1. String literals: "value" or 'value'
+        2. Numeric literals: 42 or 3.14
+        3. Identifiers: variable names for dynamic arguments
+
+        String Arguments:
+            Quoted strings are used for literal values:
+            |default:"N/A" - String literal "N/A"
+            |date:"Y-m-d" - Format string "Y-m-d"
+
+        Numeric Arguments:
+            Numbers specify counts, indices, or sizes:
+            |truncatewords:10 - Integer 10
+            |slice:1,5 - Integers 1 and 5
+            |pluralize:2.5 - Float 2.5 (less common)
+
+        Identifier Arguments:
+            Identifiers reference variables for dynamic values:
+            |default:fallback_var - Use value of fallback_var
+            |join:separator - Use value of separator variable
+
+        Type Coercion:
+            - Strings remain as strings
+            - Numbers are parsed as int or float based on decimal point
+            - Identifiers are returned as strings (variable names)
+
+        Limitations:
+            - No expression evaluation in filter arguments
+            - No attribute lookups: |filter:obj.attr not supported
+            - Arguments are positional, order matters
+
+        Returns:
+            String (for string literals or identifiers) or
+            int/float (for numeric literals).
+
+        Raises:
+            ParseError: If argument token is not STRING, NUMBER, or IDENTIFIER.
+
+        Examples:
+            "N/A" → "N/A" (string)
+            10 → 10 (int)
+            3.14 → 3.14 (float)
+            my_var → "my_var" (identifier string)
+        """
         if self.match(TokenType.STRING):
             return self.advance().value
         elif self.match(TokenType.NUMBER):
@@ -369,15 +549,47 @@ class Parser:
     # ========================================================================
 
     def parse_expression(self) -> ast_nodes.Expression | ast_nodes.Literal:
-        """
-        Parse a variable expression or literal: user.name, items.0, 42, "string".
+        """Parse variable expressions with Django's dot-notation lookups or literal values.
 
-        Note: Django only supports dot notation, not bracket notation.
+        Django templates use a unique lookup syntax where dots perform multiple types
+        of lookups in order: dictionary key, attribute, list index. This parser
+        enforces Django's restrictions:
+
+        Supported:
+            - Literals: 42, 3.14, "string", True
+            - Simple variables: user, items, data
+            - Dot lookups: user.name, items.0, obj.attr.nested
+            - Keywords as attributes: obj.as, obj.if, obj.for
+
+        NOT Supported (Django restriction):
+            - Bracket notation: user['key'], items[0]
+            - Spaces in lookups: user. name, user .name, user . name
+            - Method calls: user.get_name()
+
+        Space Restrictions:
+            Django requires no spaces around dots in lookups. This parser validates
+            token positions to reject invalid spacing:
+            - {{ user.name }} ✓
+            - {{ user .name }} ✗
+            - {{ user. name }} ✗
+
+        Keyword Handling:
+            Django allows Python/template keywords as attribute names since they're
+            used as strings for lookups: {{ obj.as }}, {{ obj.if }}, {{ obj.for }}.
+            See is_identifier_like() for the full list.
+
+        Returns:
+            Expression: For variable lookups with base and optional attribute chain.
+            Literal: For numbers, strings, and booleans.
+
+        Raises:
+            ParseError: For invalid spacing, bracket syntax, or unknown tokens.
+
         Examples:
-            {{ user.name }}     ✓ ast_nodes.Attribute access
-            {{ items.0 }}       ✓ Numeric index via dot
-            {{ user['name'] }}  ✗ NOT supported (no bracket syntax)
-            {{ items[0] }}      ✗ NOT supported (no bracket syntax)
+            user → Expression(base='user', lookups=[])
+            user.name → Expression(base='user', lookups=[Lookup('attribute', 'name')])
+            items.0 → Expression(base='items', lookups=[Lookup('attribute', '0')])
+            42 → Literal(value=42, type='number')
         """
         # Check for literal values first
         if self.match(TokenType.NUMBER):
@@ -473,7 +685,33 @@ class Parser:
     # ========================================================================
 
     def parse_template_tag(self) -> ast_nodes.ASTNode:
-        """Parse template tags like {% if %}, {% for %}, etc."""
+        """Parse Django template tags and dispatch to specialized parsing methods.
+
+        This method acts as a central dispatcher for all template tag types:
+        - Block tags: if, for, block, with, comment, filter, etc.
+        - Single tags: include, load, csrf_token, cycle, debug, etc.
+        - Custom tags: Discovered in first pass and handled generically
+
+        The parser uses a two-phase approach for custom block tags:
+        1. First pass (validation): Discovers unknown block tags by scanning
+           for {% tagname %}...{% endtagname %} patterns
+        2. Second pass (parsing): Treats discovered tags as generic blocks
+
+        This maintains context-free grammar properties while supporting
+        custom Django template tags without explicit registration.
+
+        Returns:
+            Appropriate ASTNode subclass for the parsed tag.
+
+        Raises:
+            ParseError: If tag type is unknown or malformed.
+
+        Examples:
+            {% if condition %} → IfBlock
+            {% for item in items %} → ForBlock
+            {% mytag %}...{% endmytag %} → GenericBlockTag
+            {% include "file.html" %} → IncludeTag
+        """
         self.expect(TokenType.TEMPLATE_TAG_START)
 
         tag_type = self.current().type
@@ -582,7 +820,31 @@ class Parser:
             )
 
     def parse_if_block(self) -> ast_nodes.IfBlock:
-        """Parse {% if condition %}...{% elif %}...{% else %}...{% endif %}."""
+        """Parse Django if/elif/else conditional blocks.
+
+        Syntax:
+            {% if condition %}
+                content
+            {% elif condition2 %}
+                content2
+            {% else %}
+                fallback
+            {% endif %}
+
+        Features:
+            - Multiple elif branches supported
+            - Optional else branch
+            - Conditions support: comparisons, boolean ops, filters
+            - Nested if blocks allowed
+
+        Returns:
+            IfBlock with if_condition, if_children, elif_branches list, else_children.
+
+        Examples:
+            {% if user %}...{% endif %}
+            {% if age >= 18 %}adult{% else %}minor{% endif %}
+            {% if role == "admin" %}...{% elif role == "mod" %}...{% else %}...{% endif %}
+        """
         self.expect(TokenType.IF)
 
         # Parse if condition
@@ -636,7 +898,43 @@ class Parser:
         )
 
     def parse_for_block(self) -> ast_nodes.ForBlock:
-        """Parse {% for item in items %} or {% for key, value in items %}."""
+        """Parse Django for loops with support for tuple unpacking and empty clause.
+
+        Syntax:
+            {% for var in iterable %}
+                content
+            {% empty %}
+                fallback (optional)
+            {% endfor %}
+
+        Tuple Unpacking:
+            Django supports unpacking iterables of tuples/lists:
+            {% for key, value in items %} - Unpacks 2-element sequences
+            {% for x, y, z in points %} - Unpacks 3-element sequences
+
+        Empty Clause:
+            The {% empty %} clause renders when the iterable is empty or None:
+            {% for item in items %}
+                {{ item }}
+            {% empty %}
+                No items found
+            {% endfor %}
+
+        Features:
+            - Single or multiple loop variables (tuple unpacking)
+            - Iterates over any iterable expression (lists, dicts, querysets)
+            - Optional empty clause for zero-item collections
+            - Nested for loops supported
+
+        Returns:
+            ForBlock with loop_vars list, iterable expression, children, and
+            optional empty_children.
+
+        Examples:
+            {% for item in items %}{{ item }}{% endfor %}
+            {% for key, value in dict.items %}{{ key }}: {{ value }}{% endfor %}
+            {% for user in users %}...{% empty %}No users{% endfor %}
+        """
         self.expect(TokenType.FOR)
 
         # Parse loop variables (can be tuple unpacking)
@@ -684,7 +982,65 @@ class Parser:
         )
 
     def parse_block_tag(self) -> ast_nodes.BlockTag:
-        """Parse {% block name %}...{% endblock %}."""
+        """Parse Django block tags for template inheritance.
+
+        Syntax:
+            {% block name %}
+                content
+            {% endblock %}
+
+            {% block name %}
+                content
+            {% endblock name %}
+
+        Purpose:
+            Block tags define sections in a template that child templates can
+            override. They are the foundation of Django's template inheritance
+            system, allowing:
+            - Base templates to define structure with customizable sections
+            - Child templates to override specific blocks while keeping structure
+            - Multiple levels of inheritance (grandchild inherits from child)
+
+        Block Names:
+            Block names must be valid identifiers and should be descriptive:
+            {% block title %} - Page title section
+            {% block content %} - Main content area
+            {% block sidebar %} - Sidebar section
+            {% block extra_js %} - Additional JavaScript
+
+        Optional Closing Name:
+            Block names can optionally appear after {% endblock %} for clarity:
+            {% block navigation %}...{% endblock navigation %}
+
+            The parser validates that opening and closing names match if provided.
+
+        Template Inheritance Pattern:
+            Base template (base.html):
+                <html>
+                <head>{% block title %}Default Title{% endblock %}</head>
+                <body>{% block content %}{% endblock %}</body>
+                </html>
+
+            Child template:
+                {% extends "base.html" %}
+                {% block title %}My Page{% endblock %}
+                {% block content %}<p>Hello!</p>{% endblock %}
+
+        Block Override Behavior:
+            - Child blocks completely replace parent block content
+            - {{ block.super }} can access parent block content (not yet implemented)
+            - Multiple blocks with same name not allowed in single template
+
+        Returns:
+            BlockTag with name and children nodes.
+
+        Raises:
+            ParseError: If closing block name doesn't match opening name.
+
+        Examples:
+            {% block title %}My Site{% endblock %}
+            {% block content %}Page content here{% endblock content %}
+        """
         self.expect(TokenType.BLOCK)
 
         # Parse block name
@@ -713,7 +1069,55 @@ class Parser:
         return ast_nodes.BlockTag(name=name, children=children)
 
     def parse_with_block(self) -> ast_nodes.WithBlock:
-        """Parse {% with var=value %}...{% endwith %}."""
+        """Parse Django with blocks for creating temporary variables with local scope.
+
+        Syntax:
+            {% with var=value %}
+                content
+            {% endwith %}
+
+            {% with var1=value1 var2=value2 %}
+                content
+            {% endwith %}
+
+        Purpose:
+            The with block creates a new variable scope, allowing you to:
+            - Cache expensive lookups in a local variable
+            - Simplify complex expressions by naming them
+            - Create temporary variables without polluting parent context
+
+        Multiple Assignments:
+            Django with blocks support multiple variable assignments in a single tag:
+            {% with total=items|length price=product.price %}
+                Total: {{ total }} items at ${{ price }}
+            {% endwith %}
+
+        Scoping Behavior:
+            Variables created in a with block:
+            - Are only accessible within the block
+            - Shadow outer variables with the same name
+            - Are automatically removed when the block ends
+            - Don't affect the parent context
+
+        Expression Support:
+            Values can be any valid Django expression:
+            - Variables: {% with user=request.user %}
+            - Lookups: {% with name=user.profile.full_name %}
+            - Filters: {% with upper_name=user.name|upper %}
+            - Literals: {% with count=42 %}
+
+        Returns:
+            WithBlock containing assignments list and children nodes.
+
+        Examples:
+            {% with total=business.employees.count %}
+                Total employees: {{ total }}
+            {% endwith %}
+
+            {% with alpha=person.name|first beta=person.age %}
+                {{ alpha }} is {{ beta }} years old
+            {% endwith %}
+        """
         self.expect(TokenType.WITH)
 
         # Parse assignments
@@ -744,10 +1148,59 @@ class Parser:
         return ast_nodes.WithBlock(assignments=assignments, children=children)
 
     def parse_include_tag(self) -> ast_nodes.IncludeTag:
-        """
-        Parse {% include "template.html" %} or {% include "template.html" with var=value %}.
+        """Parse Django include tags for template composition and reusability.
 
-        Supports the 'with' clause for passing context variables to the included template.
+        Syntax:
+            {% include "template.html" %}
+            {% include template_var %}
+            {% include "template.html" with var1=value1 var2=value2 %}
+
+        Purpose:
+            The include tag renders another template and inserts the output
+            into the current template. This enables:
+            - Template reuse (headers, footers, common components)
+            - Composition of complex pages from smaller templates
+            - DRY principle for repeated template fragments
+
+        Template Name:
+            Can be a string literal or a variable:
+            {% include "sidebar.html" %} - Static template name
+            {% include template_name %} - Dynamic template selection
+            {% include obj.template_path %} - Template path from object
+
+        Context Inheritance:
+            By default, included templates receive the current context
+            (all variables from the parent template are available).
+
+        With Clause:
+            The 'with' clause adds or overrides variables in the included context:
+            {% include "box.html" with title="My Box" color="blue" %}
+
+            Variables defined in 'with':
+            - Are available to the included template
+            - Override parent context variables with same name
+            - Can use expressions: with count=items|length
+
+        Multiple Variables:
+            Multiple variables can be passed via 'with':
+            {% include "card.html" with
+                heading=article.title
+                body=article.summary
+                link=article.url
+            %}
+
+        Use Cases:
+            - Reusable components: {% include "button.html" with text="Submit" %}
+            - Page sections: {% include "navbar.html" %}
+            - Conditional includes: {% include template_name with data=obj %}
+
+        Returns:
+            IncludeTag with template_name and optional context_vars dict.
+
+        Examples:
+            {% include "header.html" %}
+            {% include "item.html" with item=product %}
+            {% include form_template with form=user_form action="/submit" %}
         """
         self.expect(TokenType.INCLUDE)
 
@@ -834,7 +1287,60 @@ class Parser:
         return ast_nodes.LoadTag(libraries=libraries)
 
     def parse_url_tag(self) -> ast_nodes.UrlTag:
-        """Parse {% url 'view_name' arg1 arg2 key=val as var %}."""
+        """Parse Django URL tags for reverse URL resolution with arguments.
+
+        Syntax:
+            {% url 'view_name' %}
+            {% url 'view_name' arg1 arg2 %}
+            {% url 'view_name' key1=val1 key2=val2 %}
+            {% url 'view_name' arg1 key1=val1 as myurl %}
+
+        Purpose:
+            The url tag generates URLs by reversing Django URL patterns.
+            This allows you to reference URLs by their view name rather than
+            hardcoding paths, maintaining DRY principles and making refactoring easier.
+
+        View Name:
+            First argument must be the URL pattern name (string or variable):
+            {% url 'blog:post_detail' %} - String literal (most common)
+            {% url url_name %} - Variable containing URL pattern name
+
+        Positional Arguments:
+            Positional args are passed to the URL pattern in order:
+            {% url 'article' article.pk %} - Single arg
+            {% url 'date_archive' year month day %} - Multiple args
+
+        Keyword Arguments:
+            Named arguments map to URL pattern parameters:
+            {% url 'blog:post' pk=article.pk %} - Named parameter
+            {% url 'search' query=search_term page=1 %} - Multiple kwargs
+
+        As Variable Assignment:
+            The 'as' clause stores the URL in a variable instead of outputting:
+            {% url 'home' as home_url %}
+            <a href="{{ home_url }}">Home</a>
+
+            This is useful for:
+            - Using the same URL multiple times
+            - Conditional URL generation
+            - Passing URLs to filters
+
+        Argument Types:
+            Arguments can be:
+            - Literals: {% url 'view' 42 'text' %}
+            - Variables: {% url 'view' article.pk user.id %}
+            - Lookups: {% url 'view' item.category.slug %}
+
+        Returns:
+            UrlTag with view_name, positional args list, keyword args dict,
+            and optional as_var name.
+
+        Examples:
+            {% url 'home' %} - Simple URL with no arguments
+            {% url 'article_detail' article.id %} - URL with positional arg
+            {% url 'blog:post' pk=post.pk slug=post.slug %} - URL with kwargs
+            {% url 'search' q=query as search_url %} - URL stored in variable
+        """
         self.expect(TokenType.URL)
 
         # Parse view name (must be string or identifier)
@@ -920,7 +1426,7 @@ class Parser:
         """Parse {% cycle 'val1' 'val2' as name %} or {% cycle name %}."""
         self.expect(TokenType.CYCLE)
 
-        values = []
+        values: list[ast_nodes.Expression | ast_nodes.Literal] = []
         cycle_name = None
 
         # Parse values until we hit 'as' or %}
@@ -932,12 +1438,15 @@ class Parser:
                 break
             elif self.match(TokenType.IDENTIFIER):
                 # Variable reference in silent mode
-                values.append(self.current().value)
+                expr = ast_nodes.Expression(base=self.current().value, lookups=[])
+                values.append(expr)
                 self.advance()
             elif self.match(TokenType.STRING):
-                values.append(self.advance().value)
+                token = self.advance()
+                values.append(ast_nodes.Literal(value=token.value, type="string"))
             elif self.match(TokenType.NUMBER):
-                values.append(self.advance().value)
+                token = self.advance()
+                values.append(ast_nodes.Literal(value=token.value, type="number"))
             else:
                 break
 
@@ -1123,7 +1632,64 @@ class Parser:
         )
 
     def parse_comment_block(self) -> ast_nodes.CommentBlock:
-        """Parse {% comment %}...{% endcomment %}."""
+        """Parse Django comment blocks for multi-line template comments.
+
+        Syntax:
+            {% comment %}
+                This is a comment
+            {% endcomment %}
+
+            {% comment %}
+                Comments can span multiple lines
+                and contain {% template tags %} and {{ variables }}
+                which are all ignored
+            {% endcomment %}
+
+        Purpose:
+            Comment blocks allow developers to add documentation or temporarily
+            disable template code without it appearing in the rendered output.
+            Unlike HTML comments (<!-- -->), Django comments are completely
+            removed during template rendering and never sent to the browser.
+
+        Content Parsing:
+            Although the content inside {% comment %} blocks is not rendered,
+            the parser still processes it to maintain structural integrity.
+            This ensures proper nesting validation and AST structure.
+
+        Differences from {# ... #}:
+            Single-line comments:
+                {# This is a single-line comment #}
+                - Quick, inline comments
+                - Cannot span multiple lines
+                - Represented as Comment AST node
+
+            Multi-line comment blocks:
+                {% comment %}
+                    Multi-line comment
+                {% endcomment %}
+                - Can span many lines
+                - Can contain complex template syntax
+                - Represented as CommentBlock AST node
+
+        Use Cases:
+            - Temporary code disabling for debugging
+            - Documentation within templates
+            - Explaining complex template logic
+            - Removing code while preserving it for reference
+
+        Returns:
+            CommentBlock containing the parsed (but not rendered) children.
+
+        Examples:
+            {% comment %}
+                TODO: Implement user profile section
+            {% endcomment %}
+
+            {% comment %}
+                Disabled for testing:
+                {% include "analytics.html" %}
+            {% endcomment %}
+        """
         self.expect(TokenType.COMMENT)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
@@ -1164,7 +1730,65 @@ class Parser:
         )
 
     def parse_filter_block(self) -> ast_nodes.FilterBlock:
-        """Parse {% filter name %}...{% endfilter %}."""
+        """Parse Django filter blocks for applying filters to template sections.
+
+        Syntax:
+            {% filter name %}
+                content
+            {% endfilter %}
+
+        Purpose:
+            Filter blocks apply a template filter to all content within the block.
+            This is useful for:
+            - Applying transformations to large text sections
+            - Avoiding repetitive filter application to multiple variables
+            - Processing entire template fragments uniformly
+
+        Common Use Cases:
+            Text transformation:
+                {% filter upper %}
+                    all this text will be uppercase
+                {% endfilter %}
+
+            HTML escaping control:
+                {% filter force_escape %}
+                    <p>This HTML will be escaped</p>
+                {% endfilter %}
+
+            Text formatting:
+                {% filter linebreaks %}
+                    Line 1
+                    Line 2
+                {% endfilter %}
+
+        Filter Application:
+            The filter is applied to the rendered output of the block's content.
+            Any template tags, variables, or HTML within the block are first
+            rendered, then the filter is applied to the resulting string.
+
+        Limitations:
+            - RDTL currently supports single filter names only (no chaining)
+            - No filter arguments in block syntax: {% filter truncatewords:30 %}
+            - For complex filtering, use variables with filter chains instead
+
+        Comparison to Variable Filters:
+            Variable filter: {{ text|upper }} - Single value
+            Block filter: {% filter upper %}...{% endfilter %} - Entire section
+
+        Returns:
+            FilterBlock with filter_name and children nodes.
+
+        Examples:
+            {% filter upper %}
+                Hello {{ user.name }}
+            {% endfilter %}
+            → HELLO ALICE
+
+            {% filter lower %}
+                <h1>{{ title }}</h1>
+            {% endfilter %}
+            → <h1>my page</h1>
+        """
         self.expect(TokenType.FILTER)
 
         # Parse filter name
@@ -1318,10 +1942,38 @@ class Parser:
         return self.parse_primary_condition()
 
     def parse_primary_condition(self) -> ast_nodes.Condition:
-        """
-        Parse primary condition (comparison or simple expression).
+        """Parse the primary unit of a condition: comparison or truthiness check.
 
-        Now supports filters in conditions: {% if field|length > 1 %}
+        This method handles the lowest precedence level of condition parsing after
+        boolean operators (and/or) and negation (not) have been handled by parent methods.
+
+        Supported Condition Types:
+            1. Comparisons: value1 op value2
+               - Operators: ==, !=, <, >, <=, >=, in
+               - Examples: {% if age >= 18 %}, {% if name == "Alice" %}
+
+            2. Truthiness: expression
+               - Any expression can be evaluated for truthiness
+               - Examples: {% if user %}, {% if items %}
+
+            3. With Filters: expression|filter op value
+               - Filters can be applied before comparison
+               - Examples: {% if field|length > 1 %}, {% if name|lower == "alice" %}
+
+        Operator Precedence (handled in parent methods):
+            1. not (parse_not_condition)
+            2. and (parse_and_condition)
+            3. or  (parse_or_condition)
+            4. Comparisons and truthiness (this method)
+
+        Returns:
+            Comparison: For binary comparisons (left op right).
+            SimpleCondition: For truthiness checks (is value truthy?).
+
+        Examples:
+            age >= 18 → Comparison(left=age, operator='>=', right=18)
+            user → SimpleCondition(expression=user, negated=False)
+            items|length > 0 → Comparison(left=FilteredExpression(...), operator='>', right=0)
         """
         # Parse left side (with optional filters)
         left = self.parse_expression_with_filters()

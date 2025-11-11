@@ -6,7 +6,25 @@ These classes represent the parsed structure of an RDTL template.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeAlias
+
+# ============================================================================
+# Type Aliases for Improved Type Safety
+# ============================================================================
+
+# Literal values supported in templates (strings, numbers, booleans)
+LiteralValue: TypeAlias = str | int | float | bool
+
+# Values used in attribute/index lookups (string keys or numeric indices)
+LookupValue: TypeAlias = str | int
+
+# Arguments that can be passed to filters (literals or expressions)
+# Forward references needed since Expression/Literal defined later
+FilterArg: TypeAlias = "str | int | float | bool | Expression | Literal"
+
+# Runtime template values (unavoidable Any for dynamic context dict)
+# This documents why Any is used: templates can render any Python value
+TemplateValue: TypeAlias = Any
 
 
 class ASTNode(ABC):
@@ -162,7 +180,7 @@ class Lookup(ASTNode):
     """Attribute or index lookup."""
 
     type: str  # 'attribute' or 'index'
-    value: Any  # str for attribute, int/str for index
+    value: LookupValue  # str for attribute, int for numeric index
 
     def __repr__(self) -> str:
         if self.type == "attribute":
@@ -175,7 +193,7 @@ class Filter(ASTNode):
     """Template filter: |filter_name:arg1,arg2."""
 
     name: str
-    args: list[Any] = field(default_factory=list)
+    args: list[FilterArg] = field(default_factory=list)
 
     def __repr__(self) -> str:
         args_str = f":{','.join(repr(a) for a in self.args)}" if self.args else ""
@@ -302,8 +320,8 @@ class UrlTag(ASTNode):
     """URL tag: {% url 'view_name' arg1 arg2 key=val %}."""
 
     view_name: str
-    args: list[Any] = field(default_factory=list)
-    kwargs: dict = field(default_factory=dict)
+    args: list["Expression | Literal"] = field(default_factory=list)
+    kwargs: dict[str, "Expression | Literal"] = field(default_factory=dict)
     as_var: str | None = None
 
     def __repr__(self) -> str:
@@ -333,7 +351,7 @@ class CsrfTokenTag(ASTNode):
 class CycleTag(ASTNode):
     """Cycle tag: {% cycle 'value1' 'value2' %}."""
 
-    values: list[Any] = field(default_factory=list)
+    values: list["Expression | Literal"] = field(default_factory=list)
     cycle_name: str | None = None  # Optional named cycle
 
     def __repr__(self) -> str:
@@ -573,7 +591,7 @@ class BooleanOp(Condition):
 class Literal(ASTNode):
     """Literal value (string, number, boolean)."""
 
-    value: Any
+    value: LiteralValue
     type: str  # 'string', 'number', 'boolean'
 
     def __repr__(self) -> str:

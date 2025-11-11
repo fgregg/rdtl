@@ -120,14 +120,79 @@ class Token:
 
 
 class Lexer:
-    """
-    Tokenizes RDTL template strings.
+    """Tokenizes RDTL template strings into a stream of tokens.
 
-    The lexer operates in different modes:
-    - TEXT mode: reading plain text and HTML
-    - TAG mode: inside {% ... %}
-    - VAR mode: inside {{ ... }}
-    - COMMENT mode: inside {# ... #}
+    The lexer implements a state machine that switches between different modes
+    based on Django template delimiters. It handles HTML, template tags,
+    variables, and comments while tracking position for error reporting.
+
+    State Machine Modes:
+        TEXT Mode (default):
+            - Reads HTML tags, text content, and plain characters
+            - Watches for template delimiters: {%, {{, {#, <!--
+            - Emits: HTML_OPEN_TAG, HTML_CLOSE_TAG, TEXT, HTML_COMMENT, DOCTYPE
+            - Transitions to TAG/VAR/COMMENT mode on delimiter detection
+
+        TAG Mode ({% ... %}):
+            - Active inside Django template tags
+            - Tokenizes keywords, identifiers, operators, literals
+            - Emits: TEMPLATE_TAG_START, keywords (IF, FOR, etc.), IDENTIFIER,
+                     STRING, NUMBER, operators (==, !=, |, etc.), TEMPLATE_TAG_END
+            - Returns to TEXT mode on %}
+
+        VAR Mode ({{ ... }}):
+            - Active inside Django variable interpolations
+            - Tokenizes variable names, lookups, filters
+            - Emits: TEMPLATE_VAR_START, IDENTIFIER, DOT, PIPE, COLON,
+                     STRING, NUMBER, TEMPLATE_VAR_END
+            - Returns to TEXT mode on }}
+
+        COMMENT Mode ({# ... #}):
+            - Active inside Django template comments
+            - Collects all content until closing delimiter
+            - Emits: COMMENT token with full comment text
+            - Returns to TEXT mode on #}
+
+    HTML Parsing Features:
+        The lexer includes specialized HTML parsing:
+        - Opening tags: <div>, <span>, etc.
+        - Closing tags: </div>, </span>, etc.
+        - Self-closing/void: <img>, <br>, <input>
+        - Attributes: class="foo", disabled, data-value="123"
+        - Dynamic attributes: {{ attr_name }}="value"
+        - DOCTYPE declarations: <!DOCTYPE html>
+        - HTML comments: <!-- comment -->
+
+    Keyword Recognition:
+        The lexer maintains a KEYWORDS dictionary mapping strings to token types.
+        Common keywords include:
+        - Control flow: if, elif, else, endif, for, endfor
+        - Blocks: block, endblock, with, endwith
+        - Tags: include, extends, load, url, static
+        - Operators: and, or, not, as, by, in
+
+    Position Tracking:
+        The lexer tracks line and column numbers for error reporting:
+        - line: Current line number (1-indexed)
+        - column: Current column number (1-indexed)
+        - Each token includes position information
+
+    Usage:
+        lexer = Lexer(template_string)
+        tokens = lexer.tokenize()
+        for token in tokens:
+            print(f"{token.type}: {token.value} at {token.line}:{token.col}")
+
+    Error Handling:
+        The lexer raises LexError for:
+        - Unterminated strings
+        - Invalid characters in specific modes
+        - Malformed template delimiters
+
+    Thread Safety:
+        Lexer instances are NOT thread-safe. Each instance maintains
+        mutable position state. Create separate instances for concurrent
+        tokenization.
     """
 
     # Keywords that can appear in template tags
