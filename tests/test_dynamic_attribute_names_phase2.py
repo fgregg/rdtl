@@ -3,6 +3,8 @@
 Test dynamic attribute names - Phase 2 (simple cases where entire name is template).
 """
 
+import traceback
+
 from rdtl.formatter import Formatter
 from rdtl.lexer import Lexer
 from rdtl.parser import Parser
@@ -47,7 +49,7 @@ def test_simple_variable_attribute_name():
     lexer2 = Lexer(formatted)
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
-    ast2 = parser2.parse()
+    parser2.parse()
     print("✓ Round-trip successful")
 
     print("\n✅ Simple variable attribute name test passed!")
@@ -108,7 +110,7 @@ def test_template_tag_attribute_name():
 
     # Format
     formatter = Formatter()
-    formatted = formatter.format(ast)
+    formatter.format(ast)
     print("✓ Formatted successfully")
 
     print("\n✅ Template tag attribute name test passed!")
@@ -205,7 +207,7 @@ def test_quotes_in_attribute_name():
 
     # Parse
     parser = Parser(tokens)
-    ast = parser.parse()
+    parser.parse()
     print("✓ Parsed successfully")
 
     # Now try single quotes in name, double quotes in value
@@ -216,7 +218,7 @@ def test_quotes_in_attribute_name():
     print("✓ Lexed with single quotes in name")
 
     parser2 = Parser(tokens2)
-    ast2 = parser2.parse()
+    parser2.parse()
     print("✓ Parsed successfully")
 
     print("\n✅ Independent quote rules test passed!")
@@ -253,8 +255,6 @@ def main():
         raise
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
-        import traceback
-
         traceback.print_exc()
         raise
 

@@ -12,6 +12,9 @@ import re
 import sys
 from pathlib import Path
 
+from rdtl.formatter import format_template
+from rdtl.parser import parse
+
 
 # Color codes for output
 class Colors:
@@ -159,9 +162,6 @@ def verify_round_trip_tests():
     print()
 
     try:
-        from rdtl.formatter import format_template
-        from rdtl.parser import parse
-
         all_passed = True
         for template, description in test_cases:
             try:

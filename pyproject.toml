@@ -109,5 +109,3 @@ ignore = [
   "E501", # Ignore line length violations (if you prefer an auto-formatter to handle it)
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["PT009", "PT027", "PLC0415", "F841"]    # unittest.TestCase style, lazy imports in tests OK

@@ -3,6 +3,8 @@
 Test dynamic attribute names - Phase 3 (mixed static + dynamic parts).
 """
 
+import traceback
+
 from rdtl.formatter import Formatter
 from rdtl.lexer import Lexer
 from rdtl.parser import Parser
@@ -48,7 +50,7 @@ def test_prefix_dynamic_suffix():
     lexer2 = Lexer(formatted)
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
-    ast2 = parser2.parse()
+    parser2.parse()
     print("✓ Round-trip successful")
 
     print("\n✅ Prefix + Dynamic + Suffix test passed!")
@@ -164,7 +166,7 @@ def test_multiple_dynamic_parts():
 
     # Format
     formatter = Formatter()
-    formatted = formatter.format(ast)
+    formatter.format(ast)
     print("✓ Formatted successfully")
 
     print("\n✅ Multiple dynamic parts test passed!")
@@ -240,7 +242,7 @@ def test_complex_real_world():
 
     # Format
     formatter = Formatter()
-    formatted = formatter.format(ast)
+    formatter.format(ast)
     print("✓ Formatted successfully")
 
     print("\n✅ Complex real-world test passed!")
@@ -278,8 +280,6 @@ def main():
         raise
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
-        import traceback
-
         traceback.print_exc()
         raise
 

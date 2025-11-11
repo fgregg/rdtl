@@ -59,7 +59,7 @@ def test_phase_1_html_features():
     lexer2 = Lexer(formatted)
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
-    ast2 = parser2.parse()
+    parser2.parse()
     print("✓ Re-parsed formatted output successfully")
 
     print("\n✅ Phase 1: All HTML features working!")
@@ -133,7 +133,7 @@ It can span multiple lines.
     lexer2 = Lexer(formatted)
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
-    ast2 = parser2.parse()
+    parser2.parse()
     print("✓ Re-parsed formatted output successfully")
 
     print("\n✅ Phase 2: All block tags working!")
@@ -188,7 +188,7 @@ def test_phase_3_single_tags():
     lexer2 = Lexer(formatted)
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
-    ast2 = parser2.parse()
+    parser2.parse()
     print("✓ Re-parsed formatted output successfully")
 
     print("\n✅ Phase 3: All single tags working!")
@@ -285,7 +285,7 @@ def test_phase_4_improvements():
     lexer2 = Lexer(formatted)
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
-    ast2 = parser2.parse()
+    parser2.parse()
     print("✓ Re-parsed formatted output successfully")
 
     print("\n✅ Phase 4: All improvements working!")

@@ -251,8 +251,6 @@ class TestGrammarGeneration:
     @staticmethod
     def get_template_strategy():
         """Create Hypothesis strategy from RDTL grammar."""
-        from lark import Lark
-
         grammar_file = Path(__file__).parent.parent / "src" / "rdtl" / "rdtl_lark.lark"
         if not grammar_file.exists():
             pytest.skip(f"Grammar file not found: {grammar_file}")
