@@ -95,6 +95,62 @@ class Parser:
         """Check if current token matches any of the given types."""
         return self.current().type in token_types
 
+    def is_identifier_like(self) -> bool:
+        """Check if current token can be used as an identifier.
+
+        In attribute lookups, Django allows keywords to be used as attribute names.
+        For example: {{ obj.as }}, {{ obj.if }}, {{ obj.for }} are all valid.
+        """
+        token_type = self.current().type
+        # IDENTIFIER is obviously allowed
+        if token_type == TokenType.IDENTIFIER:
+            return True
+        # NUMBER is allowed for numeric indices
+        if token_type == TokenType.NUMBER:
+            return True
+        # Keywords can be used as attribute names
+        keyword_types = {
+            TokenType.IF,
+            TokenType.ELIF,
+            TokenType.ELSE,
+            TokenType.ENDIF,
+            TokenType.FOR,
+            TokenType.IN,
+            TokenType.EMPTY,
+            TokenType.ENDFOR,
+            TokenType.BLOCK,
+            TokenType.ENDBLOCK,
+            TokenType.WITH,
+            TokenType.ENDWITH,
+            TokenType.INCLUDE,
+            TokenType.EXTENDS,
+            TokenType.LOAD,
+            TokenType.CSRF_TOKEN,
+            TokenType.AUTOESCAPE,
+            TokenType.ENDAUTOESCAPE,
+            TokenType.COMMENT,
+            TokenType.ENDCOMMENT,
+            TokenType.IFCHANGED,
+            TokenType.ENDIFCHANGED,
+            TokenType.FILTER,
+            TokenType.ENDFILTER,
+            TokenType.SPACELESS,
+            TokenType.ENDSPACELESS,
+            TokenType.VERBATIM,
+            TokenType.ENDVERBATIM,
+            TokenType.CYCLE,
+            TokenType.RESETCYCLE,
+            TokenType.DEBUG,
+            TokenType.LOREM,
+            TokenType.REGROUP,
+            TokenType.QUERYSTRING,
+            TokenType.URL,
+            TokenType.STATIC,
+            TokenType.AS,
+            TokenType.BY,
+        }
+        return token_type in keyword_types
+
     # ========================================================================
     # Main parsing methods
     # ========================================================================
@@ -372,20 +428,14 @@ class Parser:
                     f"Use 'user.name' not 'user . name'"
                 )
 
-            # Django allows both identifiers and numbers after dot
-            # e.g., user.name or items.0
-            if self.match(TokenType.IDENTIFIER):
+            # Django allows identifiers, numbers, and keywords after dot
+            # e.g., user.name or items.0 or obj.as
+            if self.is_identifier_like():
                 attr_token = self.advance()
                 lookups.append(
                     ast_nodes.Lookup(type="attribute", value=attr_token.value)
                 )
                 prev_token = attr_token  # Track for next iteration
-            elif self.match(TokenType.NUMBER):
-                num_token = self.advance()
-                lookups.append(
-                    ast_nodes.Lookup(type="attribute", value=num_token.value)
-                )
-                prev_token = num_token  # Track for next iteration
             else:
                 raise ParseError(
                     f"Expected attribute name or index after '.' at line {self.current().line}"
