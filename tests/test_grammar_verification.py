@@ -11,15 +11,17 @@ This script checks:
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Set
+from typing import Dict, Set
+
 
 # Color codes for output
 class Colors:
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    RESET = '\033[0m'
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    RESET = "\033[0m"
+
 
 def check(condition: bool, label: str) -> bool:
     """Print check result and return condition."""
@@ -29,13 +31,16 @@ def check(condition: bool, label: str) -> bool:
         print(f"{Colors.RED}✗{Colors.RESET} {label}")
     return condition
 
+
 def info(message: str):
     """Print info message."""
     print(f"{Colors.BLUE}ℹ{Colors.RESET} {message}")
 
+
 def warn(message: str):
     """Print warning message."""
     print(f"{Colors.YELLOW}⚠{Colors.RESET} {message}")
+
 
 def extract_grammar_productions(grammar_file: Path) -> Dict[str, str]:
     """Extract production rules from EBNF grammar."""
@@ -44,13 +49,14 @@ def extract_grammar_productions(grammar_file: Path) -> Dict[str, str]:
         content = f.read()
 
     # Match EBNF productions: identifier = ... ;
-    pattern = r'^(\w+)\s*=\s*([^;]+);'
+    pattern = r"^(\w+)\s*=\s*([^;]+);"
     for match in re.finditer(pattern, content, re.MULTILINE):
         rule_name = match.group(1)
         rule_body = match.group(2).strip()
         rules[rule_name] = rule_body
 
     return rules
+
 
 def extract_parser_methods(parser_file: Path) -> Set[str]:
     """Extract parsing method names from parser.py."""
@@ -59,11 +65,12 @@ def extract_parser_methods(parser_file: Path) -> Set[str]:
         content = f.read()
 
     # Match method definitions
-    pattern = r'def\s+(parse_\w+|tokenize_\w+)\s*\('
+    pattern = r"def\s+(parse_\w+|tokenize_\w+)\s*\("
     for match in re.finditer(pattern, content):
         methods.add(match.group(1))
 
     return methods
+
 
 def verify_grammar_coverage():
     """Verify critical grammar rules have implementations."""
@@ -73,22 +80,22 @@ def verify_grammar_coverage():
 
     # Define expected mappings (grammar rule -> parser method)
     expected_mappings = {
-        'document': 'parse',  # Root method
-        'element': 'parse_element',
-        'html_element': 'parse_html_element',
-        'template_variable': 'parse_variable',
-        'if_block': 'parse_if_block',
-        'for_block': 'parse_for_block',
-        'include_tag': 'parse_include_tag',
-        'expression': 'parse_expression',
-        'expression_or_filtered': 'parse_expression_with_filters',
-        'condition': 'parse_condition',
-        'filter': 'parse_filter',
+        "document": "parse",  # Root method
+        "element": "parse_element",
+        "html_element": "parse_html_element",
+        "template_variable": "parse_variable",
+        "if_block": "parse_if_block",
+        "for_block": "parse_for_block",
+        "include_tag": "parse_include_tag",
+        "expression": "parse_expression",
+        "expression_or_filtered": "parse_expression_with_filters",
+        "condition": "parse_condition",
+        "filter": "parse_filter",
     }
 
     # Parser file is now in src/rdtl/
     project_root = Path(__file__).parent.parent
-    parser_file = project_root / 'src' / 'rdtl' / 'parser.py'
+    parser_file = project_root / "src" / "rdtl" / "parser.py"
     if not parser_file.exists():
         warn(f"parser.py not found at {parser_file}")
         return False
@@ -102,6 +109,7 @@ def verify_grammar_coverage():
         check(found, f"{rule:30} -> {expected_method}")
 
     return all_found
+
 
 def verify_new_features():
     """Verify recently added features are implemented."""
@@ -120,7 +128,7 @@ def verify_new_features():
     project_root = Path(__file__).parent.parent
     for feature_name, search_term, file_name in features:
         # Files are now in src/rdtl/
-        file_path = project_root / 'src' / 'rdtl' / file_name
+        file_path = project_root / "src" / "rdtl" / file_name
         if not file_path.exists():
             check(False, f"{feature_name:30} ({file_name} not found at {file_path})")
             all_found = False
@@ -133,6 +141,7 @@ def verify_new_features():
             check(found, f"{feature_name:30} ({search_term} in {file_name})")
 
     return all_found
+
 
 def verify_round_trip_tests():
     """Check for round-trip consistency tests."""
@@ -151,8 +160,8 @@ def verify_round_trip_tests():
     print()
 
     try:
-        from rdtl.parser import parse
         from rdtl.formatter import format_template
+        from rdtl.parser import parse
 
         all_passed = True
         for template, description in test_cases:
@@ -176,6 +185,7 @@ def verify_round_trip_tests():
         warn(f"Could not import parser/formatter: {e}")
         return False
 
+
 def suggest_improvements():
     """Suggest improvements for better verification."""
     print("\n" + "=" * 70)
@@ -193,6 +203,7 @@ def suggest_improvements():
 
     for i, suggestion in enumerate(suggestions, 1):
         print(f"{i}. {suggestion}")
+
 
 def main():
     """Run all verification checks."""
@@ -222,5 +233,6 @@ def main():
 
     return 0 if passed == total else 1
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

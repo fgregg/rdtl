@@ -5,9 +5,10 @@ Tests the new feature allowing templates in attributes with the opposite quote r
 """
 
 import unittest
-from rdtl.validator import validate_template
+
 from rdtl.lexer import tokenize
 from rdtl.parser import parse
+from rdtl.validator import validate_template
 
 
 class TestTemplateInAttribute(unittest.TestCase):
@@ -19,13 +20,17 @@ class TestTemplateInAttribute(unittest.TestCase):
 
     def test_simple_if_in_double_quoted_attr(self):
         """Test if block in double-quoted attribute with single quotes."""
-        template = """<div class="{% if active == 'yes' %}active{% endif %}">Content</div>"""
+        template = (
+            """<div class="{% if active == 'yes' %}active{% endif %}">Content</div>"""
+        )
         is_valid, errors = validate_template(template)
         self.assertTrue(is_valid, f"Should be valid. Errors: {errors}")
 
     def test_simple_if_in_single_quoted_attr(self):
         """Test if block in single-quoted attribute with double quotes."""
-        template = """<div class='{% if active == "yes" %}active{% endif %}'>Content</div>"""
+        template = (
+            """<div class='{% if active == "yes" %}active{% endif %}'>Content</div>"""
+        )
         is_valid, errors = validate_template(template)
         self.assertTrue(is_valid, f"Should be valid. Errors: {errors}")
 
@@ -43,7 +48,9 @@ class TestTemplateInAttribute(unittest.TestCase):
 
     def test_mixed_text_and_template(self):
         """Test mixing text and template in attribute."""
-        template = """<div class="prefix {% if x %}special{% endif %} suffix">Content</div>"""
+        template = (
+            """<div class="prefix {% if x %}special{% endif %} suffix">Content</div>"""
+        )
         is_valid, errors = validate_template(template)
         self.assertTrue(is_valid, f"Should be valid. Errors: {errors}")
 
@@ -80,7 +87,9 @@ class TestTemplateInAttribute(unittest.TestCase):
 
     def test_boolean_operators(self):
         """Test boolean operators in attribute templates."""
-        template = """<div class="{% if x and y or z %}active{% endif %}">Content</div>"""
+        template = (
+            """<div class="{% if x and y or z %}active{% endif %}">Content</div>"""
+        )
         is_valid, errors = validate_template(template)
         self.assertTrue(is_valid, f"Should be valid. Errors: {errors}")
 
@@ -161,9 +170,10 @@ class TestTemplateInAttribute(unittest.TestCase):
         ast = parse(template)
         # Verify we got an HTMLElement
         div = ast.children[0]
-        from ast_nodes import HTMLElement
+        from rdtl.ast_nodes import HTMLElement
+
         self.assertIsInstance(div, HTMLElement)
-        self.assertEqual(div.tag_name, 'div')
+        self.assertEqual(div.tag_name, "div")
 
     # ========================================================================
     # Formatter tests
@@ -171,14 +181,14 @@ class TestTemplateInAttribute(unittest.TestCase):
 
     def test_formatter_preserves_templates_in_attrs(self):
         """Test that formatter preserves templates in attributes."""
-        from formatter import format_template
+        from rdtl.formatter import format_template
 
         template = """<div class="{% if x %}active{% endif %}">Content</div>"""
         formatted = format_template(template)
 
         # Should still contain the template
-        self.assertIn('{% if x %}', formatted)
-        self.assertIn('{% endif %}', formatted)
+        self.assertIn("{% if x %}", formatted)
+        self.assertIn("{% endif %}", formatted)
 
     # ========================================================================
     # Edge cases
@@ -221,5 +231,5 @@ class TestTemplateInAttribute(unittest.TestCase):
         self.assertTrue(is_valid, f"Should be valid. Errors: {errors}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

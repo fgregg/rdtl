@@ -6,6 +6,7 @@ Pretty-prints templates with consistent indentation and spacing.
 
 from dataclasses import dataclass
 from typing import Optional
+
 from rdtl.ast_nodes import *
 
 # Note: Many visit methods use lazy imports for specific node types.
@@ -27,7 +28,7 @@ class FormatOptions:
     # Template tag formatting
     indent_template_blocks: bool = True
     space_in_template_tags: bool = True  # {% if %} vs {%if%}
-    space_in_variables: bool = True      # {{ x }} vs {{x}}
+    space_in_variables: bool = True  # {{ x }} vs {{x}}
 
     # Newlines
     blank_line_before_block: bool = False
@@ -67,15 +68,15 @@ class Formatter(ASTVisitor):
 
         self.visit(node)
 
-        result = ''.join(self.output)
+        result = "".join(self.output)
 
         # Clean up excessive blank lines
-        lines = result.split('\n')
+        lines = result.split("\n")
         cleaned = []
         blank_count = 0
 
         for line in lines:
-            if line.strip() == '':
+            if line.strip() == "":
                 blank_count += 1
                 if blank_count <= 1:  # Allow max 1 blank line
                     cleaned.append(line)
@@ -83,7 +84,7 @@ class Formatter(ASTVisitor):
                 blank_count = 0
                 cleaned.append(line)
 
-        return '\n'.join(cleaned)
+        return "\n".join(cleaned)
 
     def write(self, text: str):
         """Write text to output."""
@@ -96,14 +97,14 @@ class Formatter(ASTVisitor):
         """Write text followed by newline."""
         if text:
             self.write(text)
-        self.output.append('\n')
+        self.output.append("\n")
         self.needs_indent = True
 
     def _get_indent(self) -> str:
         """Get current indentation string."""
         if self.options.use_tabs:
-            return '\t' * self.indent_level
-        return ' ' * (self.indent_level * self.options.indent_size)
+            return "\t" * self.indent_level
+        return " " * (self.indent_level * self.options.indent_size)
 
     def _increase_indent(self):
         """Increase indentation level."""
@@ -131,17 +132,17 @@ class Formatter(ASTVisitor):
         tag = node.tag_name
 
         # Opening tag
-        self.write(f'<{tag}')
+        self.write(f"<{tag}")
 
         # Attributes
         for attr in node.attributes:
-            self.write(' ')
+            self.write(" ")
             self.write(attr.name)
             if attr.value is not None:
                 quote = '"' if self.options.quotes == "double" else "'"
-                self.write(f'={quote}{attr.value}{quote}')
+                self.write(f"={quote}{attr.value}{quote}")
 
-        self.write('>')
+        self.write(">")
 
         # Determine if we should format children inline or block
         has_block_children = any(
@@ -158,7 +159,7 @@ class Formatter(ASTVisitor):
                 self.visit(child)
 
             self._decrease_indent()
-            self.write(f'</{tag}>')
+            self.write(f"</{tag}>")
             self.writeln()
         else:
             # Inline formatting
@@ -168,41 +169,41 @@ class Formatter(ASTVisitor):
                 else:
                     self.visit(child)
 
-            self.output.append(f'</{tag}>')
+            self.output.append(f"</{tag}>")
             self.writeln()
 
     def visit_VoidElement(self, node: VoidElement):
         """Format a void element."""
-        self.write(f'<{node.tag_name}')
+        self.write(f"<{node.tag_name}")
 
         for attr in node.attributes:
-            self.write(' ')
+            self.write(" ")
             self.write(attr.name)
             if attr.value is not None:
                 quote = '"' if self.options.quotes == "double" else "'"
-                self.write(f'={quote}{attr.value}{quote}')
+                self.write(f"={quote}{attr.value}{quote}")
 
         if self.options.self_closing_slash:
-            self.write(' />')
+            self.write(" />")
         else:
-            self.write('>')
+            self.write(">")
 
         self.writeln()
 
     def visit_DocType(self, node):
         """Format a DOCTYPE declaration."""
-        from rdtl.ast_nodes import DocType
+
         self.writeln(node.content)
 
     def visit_HTMLComment(self, node):
         """Format an HTML comment."""
-        from rdtl.ast_nodes import HTMLComment
-        self.writeln(f'<!-- {node.content} -->')
+
+        self.writeln(f"<!-- {node.content} -->")
 
     def visit_CDATA(self, node):
         """Format a CDATA section."""
-        from rdtl.ast_nodes import CDATA
-        self.writeln(f'<![CDATA[{node.content}]]>')
+
+        self.writeln(f"<![CDATA[{node.content}]]>")
 
     def visit_TextNode(self, node: TextNode):
         """Format text node."""
@@ -219,26 +220,30 @@ class Formatter(ASTVisitor):
     def visit_Variable(self, node: Variable):
         """Format a template variable."""
         if self.options.space_in_variables:
-            self.write('{{ ')
+            self.write("{{ ")
         else:
-            self.write('{{')
+            self.write("{{")
 
         # Write expression
         self.write(str(node.expression))
 
         # Write filters
         for filter_node in node.filters:
-            self.write('|')
+            self.write("|")
             self.write(filter_node.name)
             if filter_node.args:
-                self.write(':')
-                self.write(','.join(repr(arg) if isinstance(arg, str) else str(arg)
-                                   for arg in filter_node.args))
+                self.write(":")
+                self.write(
+                    ",".join(
+                        repr(arg) if isinstance(arg, str) else str(arg)
+                        for arg in filter_node.args
+                    )
+                )
 
         if self.options.space_in_variables:
-            self.write(' }}')
+            self.write(" }}")
         else:
-            self.write('}}')
+            self.write("}}")
 
     def visit_IfBlock(self, node: IfBlock):
         """Format an if block."""
@@ -247,16 +252,16 @@ class Formatter(ASTVisitor):
 
         # Opening if
         if self.options.space_in_template_tags:
-            self.write('{% if ')
+            self.write("{% if ")
         else:
-            self.write('{%if ')
+            self.write("{%if ")
 
         self.write(self._format_condition(node.if_condition))
 
         if self.options.space_in_template_tags:
-            self.writeln(' %}')
+            self.writeln(" %}")
         else:
-            self.writeln('%}')
+            self.writeln("%}")
 
         # If body
         if self.options.indent_template_blocks:
@@ -271,16 +276,16 @@ class Formatter(ASTVisitor):
         # Elif branches
         for condition, children in node.elif_branches:
             if self.options.space_in_template_tags:
-                self.write('{% elif ')
+                self.write("{% elif ")
             else:
-                self.write('{%elif ')
+                self.write("{%elif ")
 
             self.write(self._format_condition(condition))
 
             if self.options.space_in_template_tags:
-                self.writeln(' %}')
+                self.writeln(" %}")
             else:
-                self.writeln('%}')
+                self.writeln("%}")
 
             if self.options.indent_template_blocks:
                 self._increase_indent()
@@ -294,9 +299,9 @@ class Formatter(ASTVisitor):
         # Else branch
         if node.else_children is not None:
             if self.options.space_in_template_tags:
-                self.writeln('{% else %}')
+                self.writeln("{% else %}")
             else:
-                self.writeln('{%else%}')
+                self.writeln("{%else%}")
 
             if self.options.indent_template_blocks:
                 self._increase_indent()
@@ -309,9 +314,9 @@ class Formatter(ASTVisitor):
 
         # Closing endif
         if self.options.space_in_template_tags:
-            self.writeln('{% endif %}')
+            self.writeln("{% endif %}")
         else:
-            self.writeln('{%endif%}')
+            self.writeln("{%endif%}")
 
         if self.options.blank_line_after_block:
             self.writeln()
@@ -324,15 +329,15 @@ class Formatter(ASTVisitor):
             self.writeln()
 
         # Format loop variables (supports tuple unpacking)
-        loop_vars_str = ', '.join(node.loop_vars)
+        loop_vars_str = ", ".join(node.loop_vars)
 
         # Opening for
         if self.options.space_in_template_tags:
-            self.write(f'{{% for {loop_vars_str} in {node.iterable} ')
-            self.writeln('%}')
+            self.write(f"{{% for {loop_vars_str} in {node.iterable} ")
+            self.writeln("%}")
         else:
-            self.write(f'{{%for {loop_vars_str} in {node.iterable}')
-            self.writeln('%}')
+            self.write(f"{{%for {loop_vars_str} in {node.iterable}")
+            self.writeln("%}")
 
         # Loop body
         if self.options.indent_template_blocks:
@@ -347,9 +352,9 @@ class Formatter(ASTVisitor):
         # Empty clause
         if node.empty_children is not None:
             if self.options.space_in_template_tags:
-                self.writeln('{% empty %}')
+                self.writeln("{% empty %}")
             else:
-                self.writeln('{%empty%}')
+                self.writeln("{%empty%}")
 
             if self.options.indent_template_blocks:
                 self._increase_indent()
@@ -362,9 +367,9 @@ class Formatter(ASTVisitor):
 
         # Closing endfor
         if self.options.space_in_template_tags:
-            self.writeln('{% endfor %}')
+            self.writeln("{% endfor %}")
         else:
-            self.writeln('{%endfor%}')
+            self.writeln("{%endfor%}")
 
         if self.options.blank_line_after_block:
             self.writeln()
@@ -378,9 +383,9 @@ class Formatter(ASTVisitor):
 
         # Opening block
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% block {node.name} %}}')
+            self.writeln(f"{{% block {node.name} %}}")
         else:
-            self.writeln(f'{{%block {node.name}%}}')
+            self.writeln(f"{{%block {node.name}%}}")
 
         # Block body
         if self.options.indent_template_blocks:
@@ -394,9 +399,9 @@ class Formatter(ASTVisitor):
 
         # Closing endblock
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% endblock {node.name} %}}')
+            self.writeln(f"{{% endblock {node.name} %}}")
         else:
-            self.writeln(f'{{%endblock {node.name}%}}')
+            self.writeln(f"{{%endblock {node.name}%}}")
 
         if self.options.blank_line_after_block:
             self.writeln()
@@ -406,21 +411,21 @@ class Formatter(ASTVisitor):
     def visit_WithBlock(self, node: WithBlock):
         """Format a with block."""
         if self.options.space_in_template_tags:
-            self.write('{% with ')
+            self.write("{% with ")
         else:
-            self.write('{%with ')
+            self.write("{%with ")
 
         # Write assignments
         assignments = []
         for var_name, expr in node.assignments:
-            assignments.append(f'{var_name}={expr}')
+            assignments.append(f"{var_name}={expr}")
 
-        self.write(' '.join(assignments))
+        self.write(" ".join(assignments))
 
         if self.options.space_in_template_tags:
-            self.writeln(' %}')
+            self.writeln(" %}")
         else:
-            self.writeln('%}')
+            self.writeln("%}")
 
         # Body
         if self.options.indent_template_blocks:
@@ -434,9 +439,9 @@ class Formatter(ASTVisitor):
 
         # Closing
         if self.options.space_in_template_tags:
-            self.writeln('{% endwith %}')
+            self.writeln("{% endwith %}")
         else:
-            self.writeln('{%endwith%}')
+            self.writeln("{%endwith%}")
 
         self.last_was_block = True
 
@@ -445,7 +450,7 @@ class Formatter(ASTVisitor):
         quote = '"' if self.options.quotes == "double" else "'"
 
         # Build the tag content
-        parts = [f'include {quote}{node.template_name}{quote}']
+        parts = [f"include {quote}{node.template_name}{quote}"]
 
         # Add 'with' clause if context variables are present
         if node.context_vars:
@@ -453,36 +458,36 @@ class Formatter(ASTVisitor):
             for key, value in node.context_vars.items():
                 # Format the value expression (use str() to convert Expression to string)
                 value_str = str(value)
-                var_assignments.append(f'{key}={value_str}')
-            parts.append('with ' + ' '.join(var_assignments))
+                var_assignments.append(f"{key}={value_str}")
+            parts.append("with " + " ".join(var_assignments))
 
-        tag_content = ' '.join(parts)
+        tag_content = " ".join(parts)
 
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% {tag_content} %}}')
+            self.writeln(f"{{% {tag_content} %}}")
         else:
-            self.writeln(f'{{%{tag_content}%}}')
+            self.writeln(f"{{%{tag_content}%}}")
 
     def visit_ExtendsTag(self, node: ExtendsTag):
         """Format an extends tag."""
         quote = '"' if self.options.quotes == "double" else "'"
 
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% extends {quote}{node.parent_template}{quote} %}}')
+            self.writeln(f"{{% extends {quote}{node.parent_template}{quote} %}}")
         else:
-            self.writeln(f'{{%extends {quote}{node.parent_template}{quote}%}}')
+            self.writeln(f"{{%extends {quote}{node.parent_template}{quote}%}}")
 
     def visit_LoadTag(self, node: LoadTag):
         """Format a load tag."""
-        libraries = ' '.join(node.libraries)
+        libraries = " ".join(node.libraries)
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% load {libraries} %}}')
+            self.writeln(f"{{% load {libraries} %}}")
         else:
-            self.writeln(f'{{%load {libraries}%}}')
+            self.writeln(f"{{%load {libraries}%}}")
 
     def visit_UrlTag(self, node):
         """Format a url tag."""
-        from rdtl.ast_nodes import UrlTag, Expression, Literal
+        from rdtl.ast_nodes import Expression, Literal
 
         def format_arg(arg):
             """Format an argument (string, number, expression, or literal)."""
@@ -492,7 +497,7 @@ class Formatter(ASTVisitor):
                 return str(arg)
             elif isinstance(arg, Literal):
                 # For literals, format the value directly
-                if arg.type == 'string':
+                if arg.type == "string":
                     return repr(arg.value)
                 else:
                     return str(arg.value)
@@ -502,94 +507,91 @@ class Formatter(ASTVisitor):
         # Build args string
         parts = [repr(node.view_name)]
         parts.extend(format_arg(arg) for arg in node.args)
-        parts.extend(f'{k}={format_arg(v)}' for k, v in node.kwargs.items())
+        parts.extend(f"{k}={format_arg(v)}" for k, v in node.kwargs.items())
 
         if node.as_var:
-            parts.append(f'as {node.as_var}')
+            parts.append(f"as {node.as_var}")
 
-        args_str = ' '.join(parts)
+        args_str = " ".join(parts)
 
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% url {args_str} %}}')
+            self.writeln(f"{{% url {args_str} %}}")
         else:
-            self.writeln(f'{{%url {args_str}%}}')
+            self.writeln(f"{{%url {args_str}%}}")
 
     def visit_StaticTag(self, node):
         """Format a static tag."""
-        from rdtl.ast_nodes import StaticTag
 
         path_str = repr(node.path) if isinstance(node.path, str) else node.path
 
         if self.options.space_in_template_tags:
             if node.as_var:
-                self.writeln(f'{{% static {path_str} as {node.as_var} %}}')
+                self.writeln(f"{{% static {path_str} as {node.as_var} %}}")
             else:
-                self.writeln(f'{{% static {path_str} %}}')
+                self.writeln(f"{{% static {path_str} %}}")
         else:
             if node.as_var:
-                self.writeln(f'{{%static {path_str} as {node.as_var}%}}')
+                self.writeln(f"{{%static {path_str} as {node.as_var}%}}")
             else:
-                self.writeln(f'{{%static {path_str}%}}')
+                self.writeln(f"{{%static {path_str}%}}")
 
     def visit_CsrfTokenTag(self, node: CsrfTokenTag):
         """Format a csrf_token tag."""
         if self.options.space_in_template_tags:
-            self.writeln('{% csrf_token %}')
+            self.writeln("{% csrf_token %}")
         else:
-            self.writeln('{%csrf_token%}')
+            self.writeln("{%csrf_token%}")
 
     def visit_CycleTag(self, node):
         """Format a cycle tag."""
-        from rdtl.ast_nodes import CycleTag
 
-        values_str = ' '.join(repr(v) if isinstance(v, str) else str(v) for v in node.values)
+        values_str = " ".join(
+            repr(v) if isinstance(v, str) else str(v) for v in node.values
+        )
 
         if self.options.space_in_template_tags:
             if node.cycle_name:
-                self.writeln(f'{{% cycle {values_str} as {node.cycle_name} %}}')
+                self.writeln(f"{{% cycle {values_str} as {node.cycle_name} %}}")
             else:
-                self.writeln(f'{{% cycle {values_str} %}}')
+                self.writeln(f"{{% cycle {values_str} %}}")
         else:
             if node.cycle_name:
-                self.writeln(f'{{%cycle {values_str} as {node.cycle_name}%}}')
+                self.writeln(f"{{%cycle {values_str} as {node.cycle_name}%}}")
             else:
-                self.writeln(f'{{%cycle {values_str}%}}')
+                self.writeln(f"{{%cycle {values_str}%}}")
 
     def visit_ResetCycleTag(self, node):
         """Format a resetcycle tag."""
-        from rdtl.ast_nodes import ResetCycleTag
 
         if self.options.space_in_template_tags:
             if node.cycle_name:
-                self.writeln(f'{{% resetcycle {node.cycle_name} %}}')
+                self.writeln(f"{{% resetcycle {node.cycle_name} %}}")
             else:
-                self.writeln('{% resetcycle %}')
+                self.writeln("{% resetcycle %}")
         else:
             if node.cycle_name:
-                self.writeln(f'{{%resetcycle {node.cycle_name}%}}')
+                self.writeln(f"{{%resetcycle {node.cycle_name}%}}")
             else:
-                self.writeln('{%resetcycle%}')
+                self.writeln("{%resetcycle%}")
 
     def visit_DebugTag(self, node):
         """Format a debug tag."""
-        from rdtl.ast_nodes import DebugTag
 
         if self.options.space_in_template_tags:
-            self.writeln('{% debug %}')
+            self.writeln("{% debug %}")
         else:
-            self.writeln('{%debug%}')
+            self.writeln("{%debug%}")
 
     def visit_LoremTag(self, node):
         """Format a lorem tag."""
-        from rdtl.ast_nodes import LoremTag
 
-        parts = ['lorem']
+        parts = ["lorem"]
         if node.count != 1:
             parts.append(str(node.count))
-        if node.method != 'w':
+        if node.method != "w":
             parts.append(node.method)
         if node.random:
-            parts.append('random')
+            parts.append("random")
 
         if self.options.space_in_template_tags:
             self.writeln(f'{{% {" ".join(parts)} %}}')
@@ -598,53 +600,54 @@ class Formatter(ASTVisitor):
 
     def visit_RegroupTag(self, node):
         """Format a regroup tag."""
-        from rdtl.ast_nodes import RegroupTag
 
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% regroup {node.list_expr} by {node.attribute} as {node.var_name} %}}')
+            self.writeln(
+                f"{{% regroup {node.list_expr} by {node.attribute} as {node.var_name} %}}"
+            )
         else:
-            self.writeln(f'{{%regroup {node.list_expr} by {node.attribute} as {node.var_name}%}}')
+            self.writeln(
+                f"{{%regroup {node.list_expr} by {node.attribute} as {node.var_name}%}}"
+            )
 
     def visit_QueryStringTag(self, node):
         """Format a querystring tag."""
-        from rdtl.ast_nodes import QueryStringTag
 
-        updates_str = ' '.join(f'{k}={v}' for k, v in node.updates.items())
+        updates_str = " ".join(f"{k}={v}" for k, v in node.updates.items())
 
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% querystring {updates_str} %}}')
+            self.writeln(f"{{% querystring {updates_str} %}}")
         else:
-            self.writeln(f'{{%querystring {updates_str}%}}')
+            self.writeln(f"{{%querystring {updates_str}%}}")
 
     def visit_SingleTag(self, node):
         """Format a generic single tag."""
-        from rdtl.ast_nodes import SingleTag
+
         if self.options.space_in_template_tags:
             if node.raw_content:
-                self.writeln(f'{{% {node.tag_name} {node.raw_content} %}}')
+                self.writeln(f"{{% {node.tag_name} {node.raw_content} %}}")
             else:
-                self.writeln(f'{{% {node.tag_name} %}}')
+                self.writeln(f"{{% {node.tag_name} %}}")
         else:
             if node.raw_content:
-                self.writeln(f'{{%{node.tag_name} {node.raw_content}%}}')
+                self.writeln(f"{{%{node.tag_name} {node.raw_content}%}}")
             else:
-                self.writeln(f'{{%{node.tag_name}%}}')
+                self.writeln(f"{{%{node.tag_name}%}}")
 
     def visit_GenericBlockTag(self, node):
         """Format a generic block tag."""
-        from rdtl.ast_nodes import GenericBlockTag
 
         # Opening tag
         if self.options.space_in_template_tags:
             if node.raw_args:
-                self.writeln(f'{{% {node.tag_name} {node.raw_args} %}}')
+                self.writeln(f"{{% {node.tag_name} {node.raw_args} %}}")
             else:
-                self.writeln(f'{{% {node.tag_name} %}}')
+                self.writeln(f"{{% {node.tag_name} %}}")
         else:
             if node.raw_args:
-                self.writeln(f'{{%{node.tag_name} {node.raw_args}%}}')
+                self.writeln(f"{{%{node.tag_name} {node.raw_args}%}}")
             else:
-                self.writeln(f'{{%{node.tag_name}%}}')
+                self.writeln(f"{{%{node.tag_name}%}}")
 
         # Children
         self._increase_indent()
@@ -654,18 +657,17 @@ class Formatter(ASTVisitor):
 
         # Closing tag
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% end{node.tag_name} %}}')
+            self.writeln(f"{{% end{node.tag_name} %}}")
         else:
-            self.writeln(f'{{%end{node.tag_name}%}}')
+            self.writeln(f"{{%end{node.tag_name}%}}")
 
     def visit_CommentBlock(self, node):
         """Format a comment block."""
-        from rdtl.ast_nodes import CommentBlock
 
         if self.options.space_in_template_tags:
-            self.writeln('{% comment %}')
+            self.writeln("{% comment %}")
         else:
-            self.writeln('{%comment%}')
+            self.writeln("{%comment%}")
 
         self._increase_indent()
         for child in node.children:
@@ -673,26 +675,25 @@ class Formatter(ASTVisitor):
         self._decrease_indent()
 
         if self.options.space_in_template_tags:
-            self.writeln('{% endcomment %}')
+            self.writeln("{% endcomment %}")
         else:
-            self.writeln('{%endcomment%}')
+            self.writeln("{%endcomment%}")
 
     def visit_IfChangedBlock(self, node):
         """Format an ifchanged block."""
-        from rdtl.ast_nodes import IfChangedBlock
 
         if self.options.space_in_template_tags:
             if node.watch_expressions:
-                watch = ' '.join(str(e) for e in node.watch_expressions)
-                self.writeln(f'{{% ifchanged {watch} %}}')
+                watch = " ".join(str(e) for e in node.watch_expressions)
+                self.writeln(f"{{% ifchanged {watch} %}}")
             else:
-                self.writeln('{% ifchanged %}')
+                self.writeln("{% ifchanged %}")
         else:
             if node.watch_expressions:
-                watch = ' '.join(str(e) for e in node.watch_expressions)
-                self.writeln(f'{{%ifchanged {watch}%}}')
+                watch = " ".join(str(e) for e in node.watch_expressions)
+                self.writeln(f"{{%ifchanged {watch}%}}")
             else:
-                self.writeln('{%ifchanged%}')
+                self.writeln("{%ifchanged%}")
 
         self._increase_indent()
         for child in node.children:
@@ -700,18 +701,17 @@ class Formatter(ASTVisitor):
         self._decrease_indent()
 
         if self.options.space_in_template_tags:
-            self.writeln('{% endifchanged %}')
+            self.writeln("{% endifchanged %}")
         else:
-            self.writeln('{%endifchanged%}')
+            self.writeln("{%endifchanged%}")
 
     def visit_FilterBlock(self, node):
         """Format a filter block."""
-        from rdtl.ast_nodes import FilterBlock
 
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% filter {node.filter_name} %}}')
+            self.writeln(f"{{% filter {node.filter_name} %}}")
         else:
-            self.writeln(f'{{%filter {node.filter_name}%}}')
+            self.writeln(f"{{%filter {node.filter_name}%}}")
 
         self._increase_indent()
         for child in node.children:
@@ -719,18 +719,17 @@ class Formatter(ASTVisitor):
         self._decrease_indent()
 
         if self.options.space_in_template_tags:
-            self.writeln('{% endfilter %}')
+            self.writeln("{% endfilter %}")
         else:
-            self.writeln('{%endfilter%}')
+            self.writeln("{%endfilter%}")
 
     def visit_SpacelessBlock(self, node):
         """Format a spaceless block."""
-        from rdtl.ast_nodes import SpacelessBlock
 
         if self.options.space_in_template_tags:
-            self.writeln('{% spaceless %}')
+            self.writeln("{% spaceless %}")
         else:
-            self.writeln('{%spaceless%}')
+            self.writeln("{%spaceless%}")
 
         self._increase_indent()
         for child in node.children:
@@ -738,35 +737,33 @@ class Formatter(ASTVisitor):
         self._decrease_indent()
 
         if self.options.space_in_template_tags:
-            self.writeln('{% endspaceless %}')
+            self.writeln("{% endspaceless %}")
         else:
-            self.writeln('{%endspaceless%}')
+            self.writeln("{%endspaceless%}")
 
     def visit_VerbatimBlock(self, node):
         """Format a verbatim block."""
-        from rdtl.ast_nodes import VerbatimBlock
 
         if self.options.space_in_template_tags:
-            self.writeln('{% verbatim %}')
+            self.writeln("{% verbatim %}")
         else:
-            self.writeln('{%verbatim%}')
+            self.writeln("{%verbatim%}")
 
         # Write raw content without parsing
         self.write(node.content)
 
         if self.options.space_in_template_tags:
-            self.writeln('{% endverbatim %}')
+            self.writeln("{% endverbatim %}")
         else:
-            self.writeln('{%endverbatim%}')
+            self.writeln("{%endverbatim%}")
 
     def visit_AutoescapeBlock(self, node):
         """Format an autoescape block."""
-        from rdtl.ast_nodes import AutoescapeBlock
 
         if self.options.space_in_template_tags:
-            self.writeln(f'{{% autoescape {node.mode} %}}')
+            self.writeln(f"{{% autoescape {node.mode} %}}")
         else:
-            self.writeln(f'{{%autoescape {node.mode}%}}')
+            self.writeln(f"{{%autoescape {node.mode}%}}")
 
         self._increase_indent()
         for child in node.children:
@@ -774,27 +771,27 @@ class Formatter(ASTVisitor):
         self._decrease_indent()
 
         if self.options.space_in_template_tags:
-            self.writeln('{% endautoescape %}')
+            self.writeln("{% endautoescape %}")
         else:
-            self.writeln('{%endautoescape%}')
+            self.writeln("{%endautoescape%}")
 
     def visit_Comment(self, node: Comment):
         """Format a template comment."""
         if self.options.preserve_comments:
-            self.writeln(f'{{# {node.content} #}}')
+            self.writeln(f"{{# {node.content} #}}")
 
     def _format_condition(self, condition: Condition) -> str:
         """Format a condition to string."""
         if isinstance(condition, SimpleCondition):
-            not_str = 'not ' if condition.negated else ''
-            return f'{not_str}{condition.expression}'
+            not_str = "not " if condition.negated else ""
+            return f"{not_str}{condition.expression}"
 
         elif isinstance(condition, Comparison):
-            return f'{condition.left} {condition.operator} {condition.right}'
+            return f"{condition.left} {condition.operator} {condition.right}"
 
         elif isinstance(condition, BooleanOp):
             parts = [self._format_condition(c) for c in condition.operands]
-            return f' {condition.operator} '.join(parts)
+            return f" {condition.operator} ".join(parts)
 
         return str(condition)
 
@@ -817,7 +814,7 @@ def format_template(template: str, options: Optional[FormatOptions] = None) -> s
     return formatter.format(ast)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test the formatter
     messy_template = """
 <div class="container"><h1>{{title|upper}}</h1>

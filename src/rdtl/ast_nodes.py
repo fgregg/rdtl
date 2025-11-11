@@ -4,9 +4,9 @@ Abstract Syntax Tree (AST) node definitions for RDTL.
 These classes represent the parsed structure of an RDTL template.
 """
 
-from dataclasses import dataclass, field
-from typing import List, Optional, Any, Union
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, List, Optional, Union
 
 
 class ASTNode(ABC):
@@ -22,9 +22,11 @@ class ASTNode(ABC):
 # Document and Element Nodes
 # ============================================================================
 
+
 @dataclass
 class Document(ASTNode):
     """Root node of the AST representing the entire template."""
+
     children: List[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
@@ -35,9 +37,11 @@ class Document(ASTNode):
 # HTML Nodes
 # ============================================================================
 
+
 @dataclass
 class Attribute(ASTNode):
     """HTML attribute (name="value"). Supports dynamic attribute names with template syntax."""
+
     name: str  # Static name or template string (e.g., "{{ attr }}" or "data-{{ id }}")
     value: Optional[str] = None  # None for boolean attributes
     is_dynamic_name: bool = False  # True if name contains template syntax
@@ -52,6 +56,7 @@ class Attribute(ASTNode):
 @dataclass
 class HTMLElement(ASTNode):
     """HTML element with opening/closing tags."""
+
     tag_name: str
     attributes: List[Attribute] = field(default_factory=list)
     children: List[ASTNode] = field(default_factory=list)
@@ -66,6 +71,7 @@ class HTMLElement(ASTNode):
 @dataclass
 class VoidElement(ASTNode):
     """HTML void element (br, img, input, etc.)."""
+
     tag_name: str
     attributes: List[Attribute] = field(default_factory=list)
 
@@ -77,6 +83,7 @@ class VoidElement(ASTNode):
 @dataclass
 class DocType(ASTNode):
     """HTML DOCTYPE declaration."""
+
     content: str  # Full DOCTYPE content (e.g., "<!DOCTYPE html>")
 
     def __repr__(self) -> str:
@@ -86,6 +93,7 @@ class DocType(ASTNode):
 @dataclass
 class HTMLComment(ASTNode):
     """HTML comment: <!-- comment -->."""
+
     content: str
 
     def __repr__(self) -> str:
@@ -96,6 +104,7 @@ class HTMLComment(ASTNode):
 @dataclass
 class CDATA(ASTNode):
     """CDATA section: <![CDATA[...]]>."""
+
     content: str
 
     def __repr__(self) -> str:
@@ -107,9 +116,11 @@ class CDATA(ASTNode):
 # Text Nodes
 # ============================================================================
 
+
 @dataclass
 class TextNode(ASTNode):
     """Plain text content."""
+
     content: str
 
     def __repr__(self) -> str:
@@ -121,11 +132,13 @@ class TextNode(ASTNode):
 # Template Variable Nodes
 # ============================================================================
 
+
 @dataclass
 class Variable(ASTNode):
     """Template variable: {{ variable.name }}."""
-    expression: 'Expression'
-    filters: List['Filter'] = field(default_factory=list)
+
+    expression: "Expression"
+    filters: List["Filter"] = field(default_factory=list)
 
     def __repr__(self) -> str:
         filters_str = f"|{len(self.filters)} filters" if self.filters else ""
@@ -135,8 +148,9 @@ class Variable(ASTNode):
 @dataclass
 class Expression(ASTNode):
     """Variable expression (e.g., user.name or items[0])."""
+
     base: str  # Base variable name
-    lookups: List['Lookup'] = field(default_factory=list)
+    lookups: List["Lookup"] = field(default_factory=list)
 
     def __repr__(self) -> str:
         lookups_str = "".join(str(l) for l in self.lookups)
@@ -146,11 +160,12 @@ class Expression(ASTNode):
 @dataclass
 class Lookup(ASTNode):
     """Attribute or index lookup."""
+
     type: str  # 'attribute' or 'index'
     value: Any  # str for attribute, int/str for index
 
     def __repr__(self) -> str:
-        if self.type == 'attribute':
+        if self.type == "attribute":
             return f".{self.value}"
         return f"[{self.value!r}]"
 
@@ -158,6 +173,7 @@ class Lookup(ASTNode):
 @dataclass
 class Filter(ASTNode):
     """Template filter: |filter_name:arg1,arg2."""
+
     name: str
     args: List[Any] = field(default_factory=list)
 
@@ -169,8 +185,9 @@ class Filter(ASTNode):
 @dataclass
 class FilteredExpression(ASTNode):
     """Expression with filters applied (e.g., field|length in conditions)."""
-    expression: 'Expression'
-    filters: List['Filter'] = field(default_factory=list)
+
+    expression: "Expression"
+    filters: List["Filter"] = field(default_factory=list)
 
     def __repr__(self) -> str:
         filters_str = "".join(str(f) for f in self.filters)
@@ -181,12 +198,14 @@ class FilteredExpression(ASTNode):
 # Template Block Nodes
 # ============================================================================
 
+
 @dataclass
 class IfBlock(ASTNode):
     """If/elif/else conditional block."""
-    if_condition: 'Condition'
+
+    if_condition: "Condition"
     if_children: List[ASTNode] = field(default_factory=list)
-    elif_branches: List[tuple['Condition', List[ASTNode]]] = field(default_factory=list)
+    elif_branches: List[tuple["Condition", List[ASTNode]]] = field(default_factory=list)
     else_children: Optional[List[ASTNode]] = None
 
     def __repr__(self) -> str:
@@ -201,13 +220,20 @@ class IfBlock(ASTNode):
 @dataclass
 class ForBlock(ASTNode):
     """For loop block."""
-    loop_vars: List[str] = field(default_factory=list)  # Variable names (supports tuple unpacking)
+
+    loop_vars: List[str] = field(
+        default_factory=list
+    )  # Variable names (supports tuple unpacking)
     iterable: Expression = None  # What we're iterating over
     children: List[ASTNode] = field(default_factory=list)
     empty_children: Optional[List[ASTNode]] = None
 
     def __repr__(self) -> str:
-        vars_str = ', '.join(self.loop_vars) if len(self.loop_vars) > 1 else self.loop_vars[0] if self.loop_vars else ''
+        vars_str = (
+            ", ".join(self.loop_vars)
+            if len(self.loop_vars) > 1
+            else self.loop_vars[0] if self.loop_vars else ""
+        )
         empty = ", empty" if self.empty_children else ""
         return f"ForBlock({vars_str} in {self.iterable}{empty})"
 
@@ -215,6 +241,7 @@ class ForBlock(ASTNode):
 @dataclass
 class BlockTag(ASTNode):
     """Block definition: {% block name %}...{% endblock %}."""
+
     name: str
     children: List[ASTNode] = field(default_factory=list)
 
@@ -225,6 +252,7 @@ class BlockTag(ASTNode):
 @dataclass
 class WithBlock(ASTNode):
     """With block: {% with var=value %}...{% endwith %}."""
+
     assignments: List[tuple[str, Expression]] = field(default_factory=list)
     children: List[ASTNode] = field(default_factory=list)
 
@@ -237,9 +265,11 @@ class WithBlock(ASTNode):
 # Single Template Tags
 # ============================================================================
 
+
 @dataclass
 class IncludeTag(ASTNode):
     """Include tag: {% include "template.html" %}."""
+
     template_name: str
     context_vars: dict[str, Expression] = field(default_factory=dict)
 
@@ -250,6 +280,7 @@ class IncludeTag(ASTNode):
 @dataclass
 class ExtendsTag(ASTNode):
     """Extends tag: {% extends "base.html" %}."""
+
     parent_template: str
 
     def __repr__(self) -> str:
@@ -259,6 +290,7 @@ class ExtendsTag(ASTNode):
 @dataclass
 class LoadTag(ASTNode):
     """Load tag: {% load static %}."""
+
     libraries: List[str] = field(default_factory=list)  # Support multiple libraries
 
     def __repr__(self) -> str:
@@ -268,6 +300,7 @@ class LoadTag(ASTNode):
 @dataclass
 class UrlTag(ASTNode):
     """URL tag: {% url 'view_name' arg1 arg2 key=val %}."""
+
     view_name: str
     args: List[Any] = field(default_factory=list)
     kwargs: dict = field(default_factory=dict)
@@ -280,6 +313,7 @@ class UrlTag(ASTNode):
 @dataclass
 class StaticTag(ASTNode):
     """Static tag: {% static 'path/to/file.css' %}."""
+
     path: str
     as_var: Optional[str] = None
 
@@ -298,6 +332,7 @@ class CsrfTokenTag(ASTNode):
 @dataclass
 class CycleTag(ASTNode):
     """Cycle tag: {% cycle 'value1' 'value2' %}."""
+
     values: List[Any] = field(default_factory=list)
     cycle_name: Optional[str] = None  # Optional named cycle
 
@@ -308,6 +343,7 @@ class CycleTag(ASTNode):
 @dataclass
 class ResetCycleTag(ASTNode):
     """Reset cycle tag: {% resetcycle cycle_name %}."""
+
     cycle_name: Optional[str] = None
 
     def __repr__(self) -> str:
@@ -325,8 +361,9 @@ class DebugTag(ASTNode):
 @dataclass
 class LoremTag(ASTNode):
     """Lorem ipsum tag: {% lorem count method random %}."""
+
     count: int = 1
-    method: str = 'w'  # 'w' for words, 'p' for paragraphs, 'b' for blocks
+    method: str = "w"  # 'w' for words, 'p' for paragraphs, 'b' for blocks
     random: bool = False
 
     def __repr__(self) -> str:
@@ -336,7 +373,8 @@ class LoremTag(ASTNode):
 @dataclass
 class RegroupTag(ASTNode):
     """Regroup tag: {% regroup list by attribute as var %}."""
-    list_expr: 'Expression'
+
+    list_expr: "Expression"
     attribute: str
     var_name: str
 
@@ -347,6 +385,7 @@ class RegroupTag(ASTNode):
 @dataclass
 class QueryStringTag(ASTNode):
     """Query string tag: {% querystring key=value %}."""
+
     updates: dict = field(default_factory=dict)  # Key-value pairs to update
 
     def __repr__(self) -> str:
@@ -359,11 +398,16 @@ class SingleTag(ASTNode):
     Generic single tag for arbitrary template tags.
     Examples: {% url 'name' %}, {% static 'path' %}, {% custom_tag args %}
     """
+
     tag_name: str
     raw_content: str  # Everything between {% tag_name and %}
 
     def __repr__(self) -> str:
-        preview = self.raw_content[:30] + "..." if len(self.raw_content) > 30 else self.raw_content
+        preview = (
+            self.raw_content[:30] + "..."
+            if len(self.raw_content) > 30
+            else self.raw_content
+        )
         return f"SingleTag({self.tag_name!r}, {preview!r})"
 
 
@@ -373,12 +417,15 @@ class GenericBlockTag(ASTNode):
     Generic block tag for custom/unknown block tags.
     Examples: {% myblock args %}...{% endmyblock %}
     """
+
     tag_name: str
     raw_args: str  # Arguments after tag name
     children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
-        args_preview = self.raw_args[:20] + "..." if len(self.raw_args) > 20 else self.raw_args
+        args_preview = (
+            self.raw_args[:20] + "..." if len(self.raw_args) > 20 else self.raw_args
+        )
         return f"GenericBlockTag({self.tag_name!r}, args={args_preview!r}, children={len(self.children)})"
 
 
@@ -386,9 +433,11 @@ class GenericBlockTag(ASTNode):
 # Comment Nodes
 # ============================================================================
 
+
 @dataclass
 class Comment(ASTNode):
     """Template comment: {# comment #}."""
+
     content: str
 
     def __repr__(self) -> str:
@@ -399,6 +448,7 @@ class Comment(ASTNode):
 @dataclass
 class CommentBlock(ASTNode):
     """Django comment block: {% comment %}...{% endcomment %}."""
+
     children: List[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
@@ -408,17 +458,25 @@ class CommentBlock(ASTNode):
 @dataclass
 class IfChangedBlock(ASTNode):
     """If changed block: {% ifchanged %}...{% endifchanged %}."""
-    watch_expressions: List['Expression'] = field(default_factory=list)  # Optional variables to watch
+
+    watch_expressions: List["Expression"] = field(
+        default_factory=list
+    )  # Optional variables to watch
     children: List[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
-        watch_str = f", watching {len(self.watch_expressions)}" if self.watch_expressions else ""
+        watch_str = (
+            f", watching {len(self.watch_expressions)}"
+            if self.watch_expressions
+            else ""
+        )
         return f"IfChangedBlock({len(self.children)} children{watch_str})"
 
 
 @dataclass
 class FilterBlock(ASTNode):
     """Filter block: {% filter name %}...{% endfilter %}."""
+
     filter_name: str
     children: List[ASTNode] = field(default_factory=list)
 
@@ -429,6 +487,7 @@ class FilterBlock(ASTNode):
 @dataclass
 class SpacelessBlock(ASTNode):
     """Spaceless block: {% spaceless %}...{% endspaceless %}."""
+
     children: List[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
@@ -438,6 +497,7 @@ class SpacelessBlock(ASTNode):
 @dataclass
 class VerbatimBlock(ASTNode):
     """Verbatim block: {% verbatim %}...{% endverbatim %}."""
+
     content: str  # Raw content (not parsed)
 
     def __repr__(self) -> str:
@@ -448,6 +508,7 @@ class VerbatimBlock(ASTNode):
 @dataclass
 class AutoescapeBlock(ASTNode):
     """Autoescape block: {% autoescape on/off %}...{% endautoescape %}."""
+
     mode: str  # 'on' or 'off'
     children: List[ASTNode] = field(default_factory=list)
 
@@ -459,16 +520,19 @@ class AutoescapeBlock(ASTNode):
 # Condition Nodes (for if/elif)
 # ============================================================================
 
+
 @dataclass
 class Condition(ASTNode):
     """Boolean condition in if/elif statements."""
+
     pass
 
 
 @dataclass
 class SimpleCondition(Condition):
     """Simple condition: just a variable or expression."""
-    expression: 'Union[Expression, Literal]'
+
+    expression: "Union[Expression, Literal]"
     negated: bool = False
 
     def __repr__(self) -> str:
@@ -479,9 +543,10 @@ class SimpleCondition(Condition):
 @dataclass
 class Comparison(Condition):
     """Comparison condition: x == y, a < b, etc."""
-    left: 'Union[Expression, Literal]'
+
+    left: "Union[Expression, Literal]"
     operator: str  # ==, !=, <, >, <=, >=, in, not in
-    right: 'Union[Expression, Literal]'
+    right: "Union[Expression, Literal]"
 
     def __repr__(self) -> str:
         return f"{self.left} {self.operator} {self.right}"
@@ -490,6 +555,7 @@ class Comparison(Condition):
 @dataclass
 class BooleanOp(Condition):
     """Boolean operation: and, or."""
+
     operator: str  # 'and' or 'or'
     operands: List[Condition] = field(default_factory=list)
 
@@ -502,9 +568,11 @@ class BooleanOp(Condition):
 # Literal Values
 # ============================================================================
 
+
 @dataclass
 class Literal(ASTNode):
     """Literal value (string, number, boolean)."""
+
     value: Any
     type: str  # 'string', 'number', 'boolean'
 
@@ -515,6 +583,7 @@ class Literal(ASTNode):
 # ============================================================================
 # AST Visitor Pattern
 # ============================================================================
+
 
 class ASTVisitor(ABC):
     """
@@ -532,7 +601,7 @@ class ASTVisitor(ABC):
     def generic_visit(self, node: ASTNode) -> Any:
         """Called if no explicit visit_* method exists."""
         # Visit children if they exist
-        if hasattr(node, 'children'):
+        if hasattr(node, "children"):
             for child in node.children:
                 self.visit(child)
 
@@ -575,6 +644,7 @@ class ASTVisitor(ABC):
 # ============================================================================
 # Pretty Printer
 # ============================================================================
+
 
 class ASTPrinter(ASTVisitor):
     """Pretty-print the AST."""

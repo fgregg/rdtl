@@ -10,52 +10,67 @@ Strategy: Generate templates from our grammar, then ensure both parsers agree.
 """
 
 import unittest
+from pathlib import Path
+
 import django
+import pytest
 from django.conf import settings
-from hypothesis import given, settings as hypothesis_settings, strategies as st, assume, seed
+from hypothesis import (
+    assume,
+    given,
+    seed,
+)
+from hypothesis import (
+    settings as hypothesis_settings,
+)
+from hypothesis import (
+    strategies as st,
+)
 from hypothesis.extra.lark import from_lark
 from lark import Lark
-from pathlib import Path
 
 # Configure Django
 if not settings.configured:
     settings.configure(
         DEBUG=True,
-        INSTALLED_APPS=['django.contrib.contenttypes'],
-        TEMPLATES=[{'BACKEND': 'django.template.backends.django.DjangoTemplates'}]
+        INSTALLED_APPS=["django.contrib.contenttypes"],
+        TEMPLATES=[{"BACKEND": "django.template.backends.django.DjangoTemplates"}],
     )
     django.setup()
 
-from django.template import Template, TemplateSyntaxError as DjangoTemplateSyntaxError
-from rdtl.parser import parse, ParseError
+from django.template import Template
+from django.template import TemplateSyntaxError as DjangoTemplateSyntaxError
 
+from rdtl.parser import ParseError, parse
 
 # Check if hypothesis[lark] is available
 try:
     from hypothesis.extra.lark import from_lark
+
     LARK_GENERATION_AVAILABLE = True
 except (ImportError, AttributeError):
     LARK_GENERATION_AVAILABLE = False
 
 
 @unittest.skipIf(not LARK_GENERATION_AVAILABLE, "hypothesis[lark] not available")
+@pytest.mark.slow
 class TestGrammarWithDjango(unittest.TestCase):
     """Generate templates from grammar and validate against Django."""
 
     @staticmethod
     def get_template_strategy():
         """Create Hypothesis strategy from RDTL grammar."""
-        grammar_file = Path(__file__).parent.parent / 'src' / 'rdtl' / 'rdtl_lark.lark'
+        grammar_file = Path(__file__).parent.parent / "src" / "rdtl" / "rdtl_lark.lark"
         with open(grammar_file) as f:
             grammar_text = f.read()
 
-        grammar = Lark(grammar_text, start='document', parser='lalr')
+        grammar = Lark(grammar_text, start="document", parser="lalr")
 
         return from_lark(
             grammar,
-            start='document',
+            start="document",
             alphabet=st.characters(min_codepoint=32, max_codepoint=126),
-            explicit={'WS': st.just(' ')}
+            explicit={"WS": st.just(" ")},
         )
 
     def compare_parsers(self, template_str: str) -> dict:
@@ -69,31 +84,31 @@ class TestGrammarWithDjango(unittest.TestCase):
         - rdtl_error: str or None
         """
         result = {
-            'django_accepts': False,
-            'django_error': None,
-            'rdtl_accepts': False,
-            'rdtl_error': None,
+            "django_accepts": False,
+            "django_error": None,
+            "rdtl_accepts": False,
+            "rdtl_error": None,
         }
 
         # Test Django
         try:
             Template(template_str)
-            result['django_accepts'] = True
+            result["django_accepts"] = True
         except DjangoTemplateSyntaxError as e:
-            result['django_error'] = str(e)
-        except Exception as e:
+            result["django_error"] = str(e)
+        except Exception:
             # Other errors (like AppRegistryNotReady) - treat as accepted
             # We only care about template syntax errors
-            result['django_accepts'] = True
+            result["django_accepts"] = True
 
         # Test RDTL
         try:
             parse(template_str)
-            result['rdtl_accepts'] = True
+            result["rdtl_accepts"] = True
         except ParseError as e:
-            result['rdtl_error'] = str(e)
+            result["rdtl_error"] = str(e)
         except Exception as e:
-            result['rdtl_error'] = f"{type(e).__name__}: {e}"
+            result["rdtl_error"] = f"{type(e).__name__}: {e}"
 
         return result
 
@@ -111,14 +126,14 @@ class TestGrammarWithDjango(unittest.TestCase):
         template_str = data.draw(template_strategy)
 
         # Skip empty templates
-        assume(template_str.strip() != '')
+        assume(template_str.strip() != "")
 
         result = self.compare_parsers(template_str)
 
         # Core invariant: if Django rejects for syntax, RDTL should too
-        if not result['django_accepts']:
+        if not result["django_accepts"]:
             # Django rejected it, RDTL should also reject
-            if result['rdtl_accepts']:
+            if result["rdtl_accepts"]:
                 # This is a problem - we accept something Django rejects
                 self.fail(
                     f"RDTL accepts template that Django rejects:\n"
@@ -129,14 +144,14 @@ class TestGrammarWithDjango(unittest.TestCase):
         # If Django accepts, RDTL should ideally accept too
         # (unless we're intentionally more restrictive)
         # This is a soft check - we log disagreements for investigation
-        if result['django_accepts'] and not result['rdtl_accepts']:
+        if result["django_accepts"] and not result["rdtl_accepts"]:
             # RDTL is more strict - this might be intentional
             # For now, we just check that it's not a regression
             known_restrictions = [
                 # We might add intentional restrictions here
             ]
 
-            is_known = any(msg in result['rdtl_error'] for msg in known_restrictions)
+            is_known = any(msg in result["rdtl_error"] for msg in known_restrictions)
 
             # Log for investigation but don't fail
             # (some restrictions might be intentional)
@@ -155,23 +170,28 @@ class TestGrammarWithDjango(unittest.TestCase):
         template_str = data.draw(template_strategy)
 
         # Skip empty
-        assume(template_str.strip() != '')
+        assume(template_str.strip() != "")
 
         result = self.compare_parsers(template_str)
 
         # Track categories
-        if result['django_accepts'] and result['rdtl_accepts']:
+        if result["django_accepts"] and result["rdtl_accepts"]:
             category = "both_accept"
-        elif not result['django_accepts'] and not result['rdtl_accepts']:
+        elif not result["django_accepts"] and not result["rdtl_accepts"]:
             category = "both_reject"
-        elif result['django_accepts'] and not result['rdtl_accepts']:
+        elif result["django_accepts"] and not result["rdtl_accepts"]:
             category = "django_only"
         else:
             category = "rdtl_only"
 
         # Store in test instance for reporting
-        if not hasattr(self, '_stats'):
-            self._stats = {'both_accept': 0, 'both_reject': 0, 'django_only': 0, 'rdtl_only': 0}
+        if not hasattr(self, "_stats"):
+            self._stats = {
+                "both_accept": 0,
+                "both_reject": 0,
+                "django_only": 0,
+                "rdtl_only": 0,
+            }
 
         self._stats[category] += 1
 
@@ -211,13 +231,13 @@ class TestSpecificDjangoFeatures(unittest.TestCase):
 
         for template in invalid_templates:
             # Django rejects
-            with self.assertRaises(DjangoTemplateSyntaxError,
-                                   msg=f"Django should reject: {template}"):
+            with self.assertRaises(
+                DjangoTemplateSyntaxError, msg=f"Django should reject: {template}"
+            ):
                 Template(template)
 
             # RDTL rejects
-            with self.assertRaises(Exception,
-                                   msg=f"RDTL should reject: {template}"):
+            with self.assertRaises(Exception, msg=f"RDTL should reject: {template}"):
                 parse(template)
 
     def test_django_rejects_brackets(self):
@@ -230,15 +250,15 @@ class TestSpecificDjangoFeatures(unittest.TestCase):
 
         for template in invalid_templates:
             # Django rejects
-            with self.assertRaises(DjangoTemplateSyntaxError,
-                                   msg=f"Django should reject: {template}"):
+            with self.assertRaises(
+                DjangoTemplateSyntaxError, msg=f"Django should reject: {template}"
+            ):
                 Template(template)
 
             # RDTL rejects
-            with self.assertRaises(Exception,
-                                   msg=f"RDTL should reject: {template}"):
+            with self.assertRaises(Exception, msg=f"RDTL should reject: {template}"):
                 parse(template)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

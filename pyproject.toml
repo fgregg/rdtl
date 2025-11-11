@@ -38,6 +38,7 @@ dev = [
     "pytest-cov>=4.0",
     "hypothesis>=6.0",
     "lark-parser>=0.12",
+    "pre-commit",
     "django>=5.0",  # For reference implementation testing
 ]
 
@@ -72,6 +73,10 @@ addopts = [
     "--cov=rdtl",
     "--cov-report=term-missing",
     "--cov-report=html",
+    "-m", "not slow",  # Skip slow tests by default
+]
+markers = [
+    "slow: marks tests as slow (deselected by default, run with -m slow)",
 ]
 
 [tool.coverage.run]
@@ -90,4 +95,17 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
     "@abstractmethod",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort (import sorting)
+  "UP",  # pyupgrade (modernize code)
+  "PLC", # Pylint conventions
+  "PT",  # pytest rules
+]
+ignore = [
+  "E501", # Ignore line length violations (if you prefer an auto-formatter to handle it)
 ]

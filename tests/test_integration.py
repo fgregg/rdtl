@@ -4,17 +4,17 @@ Comprehensive integration test for all Django 5.2 built-in features.
 Tests Phases 1-5 implementation.
 """
 
+from rdtl.formatter import FormatOptions, Formatter
 from rdtl.lexer import Lexer
 from rdtl.parser import Parser
-from rdtl.formatter import Formatter, FormatOptions
 from rdtl.validator import RDTLValidator
 
 
 def test_phase_1_html_features():
     """Test Phase 1: HTML features (DOCTYPE, comments, CDATA)."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 1: HTML FEATURES")
-    print("="*70)
+    print("=" * 70)
 
     template = """<!DOCTYPE html>
 <html>
@@ -67,9 +67,9 @@ def test_phase_1_html_features():
 
 def test_phase_2_block_tags():
     """Test Phase 2: Django block tags."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 2: DJANGO BLOCK TAGS")
-    print("="*70)
+    print("=" * 70)
 
     template = """{% comment %}
 This is a Django comment block.
@@ -113,13 +113,15 @@ It can span multiple lines.
     print(f"✓ Parsed successfully ({len(ast.children)} top-level nodes)")
 
     # Check for expected block types
-    block_types = [type(node).__name__ for node in ast.children if hasattr(node, '__class__')]
-    assert 'CommentBlock' in block_types, "Missing CommentBlock"
-    assert 'AutoescapeBlock' in block_types, "Missing AutoescapeBlock"
-    assert 'IfChangedBlock' in block_types, "Missing IfChangedBlock"
-    assert 'FilterBlock' in block_types, "Missing FilterBlock"
-    assert 'SpacelessBlock' in block_types, "Missing SpacelessBlock"
-    assert 'VerbatimBlock' in block_types, "Missing VerbatimBlock"
+    block_types = [
+        type(node).__name__ for node in ast.children if hasattr(node, "__class__")
+    ]
+    assert "CommentBlock" in block_types, "Missing CommentBlock"
+    assert "AutoescapeBlock" in block_types, "Missing AutoescapeBlock"
+    assert "IfChangedBlock" in block_types, "Missing IfChangedBlock"
+    assert "FilterBlock" in block_types, "Missing FilterBlock"
+    assert "SpacelessBlock" in block_types, "Missing SpacelessBlock"
+    assert "VerbatimBlock" in block_types, "Missing VerbatimBlock"
     print("✓ All expected block types found")
 
     # Format
@@ -139,9 +141,9 @@ It can span multiple lines.
 
 def test_phase_3_single_tags():
     """Test Phase 3: Django single tags."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 3: DJANGO SINGLE TAGS")
-    print("="*70)
+    print("=" * 70)
 
     template = """{% cycle 'odd' 'even' %}
 {% cycle 'odd' 'even' as rowcolors %}
@@ -166,13 +168,15 @@ def test_phase_3_single_tags():
     print(f"✓ Parsed successfully ({len(ast.children)} top-level nodes)")
 
     # Check for expected tag types
-    tag_types = [type(node).__name__ for node in ast.children if hasattr(node, '__class__')]
-    assert 'CycleTag' in tag_types, "Missing CycleTag"
-    assert 'ResetCycleTag' in tag_types, "Missing ResetCycleTag"
-    assert 'DebugTag' in tag_types, "Missing DebugTag"
-    assert 'LoremTag' in tag_types, "Missing LoremTag"
-    assert 'RegroupTag' in tag_types, "Missing RegroupTag"
-    assert 'QueryStringTag' in tag_types, "Missing QueryStringTag"
+    tag_types = [
+        type(node).__name__ for node in ast.children if hasattr(node, "__class__")
+    ]
+    assert "CycleTag" in tag_types, "Missing CycleTag"
+    assert "ResetCycleTag" in tag_types, "Missing ResetCycleTag"
+    assert "DebugTag" in tag_types, "Missing DebugTag"
+    assert "LoremTag" in tag_types, "Missing LoremTag"
+    assert "RegroupTag" in tag_types, "Missing RegroupTag"
+    assert "QueryStringTag" in tag_types, "Missing QueryStringTag"
     print("✓ All expected single tags found")
 
     # Format
@@ -192,9 +196,9 @@ def test_phase_3_single_tags():
 
 def test_phase_4_improvements():
     """Test Phase 4: Tag improvements."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 4: TAG IMPROVEMENTS")
-    print("="*70)
+    print("=" * 70)
 
     template = """{% load static humanize %}
 {% load i18n l10n %}
@@ -228,17 +232,20 @@ def test_phase_4_improvements():
     print(f"✓ Parsed successfully ({len(ast.children)} top-level nodes)")
 
     # Check load tag has multiple libraries
-    load_tags = [node for node in ast.children if type(node).__name__ == 'LoadTag']
+    load_tags = [node for node in ast.children if type(node).__name__ == "LoadTag"]
     assert len(load_tags) >= 2, "Expected at least 2 load tags"
-    assert len(load_tags[0].libraries) == 2, f"Expected 2 libraries in first load tag, got {load_tags[0].libraries}"
+    assert (
+        len(load_tags[0].libraries) == 2
+    ), f"Expected 2 libraries in first load tag, got {load_tags[0].libraries}"
     print(f"✓ Load tag with multiple libraries: {load_tags[0].libraries}")
 
     # Check for loop with tuple unpacking
     for_blocks = []
+
     def find_for_blocks(node):
-        if type(node).__name__ == 'ForBlock':
+        if type(node).__name__ == "ForBlock":
             for_blocks.append(node)
-        if hasattr(node, 'children'):
+        if hasattr(node, "children"):
             for child in node.children:
                 find_for_blocks(child)
 
@@ -248,20 +255,24 @@ def test_phase_4_improvements():
     assert len(for_blocks) >= 2, "Expected at least 2 for blocks"
 
     # First for block should have 2 loop vars (key, value)
-    assert len(for_blocks[0].loop_vars) == 2, f"Expected 2 loop vars, got {for_blocks[0].loop_vars}"
+    assert (
+        len(for_blocks[0].loop_vars) == 2
+    ), f"Expected 2 loop vars, got {for_blocks[0].loop_vars}"
     print(f"✓ For block with tuple unpacking: {for_blocks[0].loop_vars}")
 
     # Second for block should have 3 loop vars (x, y, z)
-    assert len(for_blocks[1].loop_vars) == 3, f"Expected 3 loop vars, got {for_blocks[1].loop_vars}"
+    assert (
+        len(for_blocks[1].loop_vars) == 3
+    ), f"Expected 3 loop vars, got {for_blocks[1].loop_vars}"
     print(f"✓ For block with 3-tuple unpacking: {for_blocks[1].loop_vars}")
 
     # Check url tags
-    url_tags = [node for node in ast.children if type(node).__name__ == 'UrlTag']
+    url_tags = [node for node in ast.children if type(node).__name__ == "UrlTag"]
     assert len(url_tags) >= 3, "Expected at least 3 url tags"
     print(f"✓ Found {len(url_tags)} url tags with argument parsing")
 
     # Check static tags
-    static_tags = [node for node in ast.children if type(node).__name__ == 'StaticTag']
+    static_tags = [node for node in ast.children if type(node).__name__ == "StaticTag"]
     assert len(static_tags) >= 2, "Expected at least 2 static tags"
     print(f"✓ Found {len(static_tags)} static tags")
 
@@ -282,9 +293,9 @@ def test_phase_4_improvements():
 
 def test_phase_5_filter_validation():
     """Test Phase 5: Filter validation."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 5: FILTER VALIDATION")
-    print("="*70)
+    print("=" * 70)
 
     # Test with valid Django filters
     valid_template = """{{ value|default:"nothing" }}
@@ -306,13 +317,17 @@ def test_phase_5_filter_validation():
     validator2 = RDTLValidator(invalid_template, validate_filters=True)
     is_valid2 = validator2.validate()
     assert not is_valid2, "Invalid filters should be rejected"
-    assert len(validator2.errors) == 2, f"Expected 2 errors, got {len(validator2.errors)}"
+    assert (
+        len(validator2.errors) == 2
+    ), f"Expected 2 errors, got {len(validator2.errors)}"
     print(f"✓ Invalid filters correctly rejected: {len(validator2.errors)} errors")
 
     # Test with validation disabled (should pass)
     validator3 = RDTLValidator(invalid_template, validate_filters=False)
     is_valid3 = validator3.validate()
-    assert is_valid3, f"Custom filters should pass when validation disabled: {validator3.errors}"
+    assert (
+        is_valid3
+    ), f"Custom filters should pass when validation disabled: {validator3.errors}"
     print("✓ Custom filters allowed when validation disabled")
 
     # Test chained filters
@@ -329,9 +344,9 @@ def test_phase_5_filter_validation():
 
 def test_full_integration():
     """Test all features together in one comprehensive template."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("FULL INTEGRATION TEST")
-    print("="*70)
+    print("=" * 70)
 
     template = """<!DOCTYPE html>
 <html lang="en">
@@ -439,14 +454,15 @@ def test_full_integration():
 
     # Count features
     feature_counts = {}
+
     def count_features(node):
         node_type = type(node).__name__
         feature_counts[node_type] = feature_counts.get(node_type, 0) + 1
 
-        if hasattr(node, 'children'):
+        if hasattr(node, "children"):
             for child in node.children:
                 count_features(child)
-        if hasattr(node, 'empty_children') and node.empty_children:
+        if hasattr(node, "empty_children") and node.empty_children:
             for child in node.empty_children:
                 count_features(child)
 
@@ -455,15 +471,15 @@ def test_full_integration():
 
     print("\nFeature usage:")
     for feature, count in sorted(feature_counts.items()):
-        if feature not in ['Text', 'VariableExpression', 'Identifier', 'StringLiteral']:
+        if feature not in ["Text", "VariableExpression", "Identifier", "StringLiteral"]:
             print(f"  - {feature}: {count}")
 
     # Format
-    formatter = Formatter(FormatOptions(
-        indent_size=4,
-        space_in_template_tags=True,
-        space_in_variables=True
-    ))
+    formatter = Formatter(
+        FormatOptions(
+            indent_size=4, space_in_template_tags=True, space_in_variables=True
+        )
+    )
     formatted = formatter.format(ast)
     print(f"\n✓ Formatted: {len(formatted)} characters")
 
@@ -481,11 +497,11 @@ def test_full_integration():
     print("✓ Formatted output parses successfully")
 
     # Re-format and check idempotency
-    formatter2 = Formatter(FormatOptions(
-        indent_size=4,
-        space_in_template_tags=True,
-        space_in_variables=True
-    ))
+    formatter2 = Formatter(
+        FormatOptions(
+            indent_size=4, space_in_template_tags=True, space_in_variables=True
+        )
+    )
     formatted2 = formatter2.format(ast2)
     if formatted == formatted2:
         print("✓ Formatting is idempotent")
@@ -498,10 +514,10 @@ def test_full_integration():
 
 def main():
     """Run all integration tests."""
-    print("="*70)
+    print("=" * 70)
     print("COMPREHENSIVE INTEGRATION TEST SUITE")
     print("Django 5.2 Built-in Features (Phases 1-5)")
-    print("="*70)
+    print("=" * 70)
 
     try:
         test_phase_1_html_features()
@@ -511,9 +527,9 @@ def main():
         test_phase_5_filter_validation()
         test_full_integration()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("🎉 ALL TESTS PASSED! 🎉")
-        print("="*70)
+        print("=" * 70)
         print("\nAll Phase 1-5 features are working correctly:")
         print("  ✓ HTML features (DOCTYPE, comments, CDATA)")
         print("  ✓ Django block tags (6 new tags)")
@@ -522,7 +538,7 @@ def main():
         print("  ✓ Filter validation (58 Django filters)")
         print("  ✓ Full integration with all features combined")
         print("\nReady for Phase 7: Documentation!")
-        print("="*70)
+        print("=" * 70)
 
     except AssertionError as e:
         print(f"\n❌ TEST FAILED: {e}")
@@ -532,5 +548,5 @@ def main():
         raise
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

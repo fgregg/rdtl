@@ -4,7 +4,8 @@ Template renderer for RDTL.
 Evaluates the AST and produces HTML output.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
+
 from rdtl.ast_nodes import *
 
 
@@ -53,20 +54,20 @@ class Renderer(ASTVisitor):
 
         # Built-in filters
         self.filters = {
-            'upper': lambda x: str(x).upper(),
-            'lower': lambda x: str(x).lower(),
-            'title': lambda x: str(x).title(),
-            'length': lambda x: len(x) if hasattr(x, '__len__') else 0,
-            'default': lambda x, d='': x if x else d,
-            'truncatewords': self._filter_truncatewords,
-            'date': self._filter_date,
+            "upper": lambda x: str(x).upper(),
+            "lower": lambda x: str(x).lower(),
+            "title": lambda x: str(x).title(),
+            "length": lambda x: len(x) if hasattr(x, "__len__") else 0,
+            "default": lambda x, d="": x if x else d,
+            "truncatewords": self._filter_truncatewords,
+            "date": self._filter_date,
         }
 
     def render(self, node: ASTNode) -> str:
         """Render a template AST to HTML string."""
         self.output = []
         self.visit(node)
-        return ''.join(self.output)
+        return "".join(self.output)
 
     def write(self, text: str):
         """Append text to output."""
@@ -84,7 +85,7 @@ class Renderer(ASTVisitor):
     def visit_HTMLElement(self, node: HTMLElement):
         """Render an HTML element."""
         # Opening tag
-        self.write(f'<{node.tag_name}')
+        self.write(f"<{node.tag_name}")
 
         # Attributes
         for attr in node.attributes:
@@ -94,29 +95,29 @@ class Renderer(ASTVisitor):
                 self.write(f' {attr.name}="{escaped_value}"')
             else:
                 # Boolean attribute
-                self.write(f' {attr.name}')
+                self.write(f" {attr.name}")
 
-        self.write('>')
+        self.write(">")
 
         # Children
         for child in node.children:
             self.visit(child)
 
         # Closing tag
-        self.write(f'</{node.tag_name}>')
+        self.write(f"</{node.tag_name}>")
 
     def visit_VoidElement(self, node: VoidElement):
         """Render a void HTML element."""
-        self.write(f'<{node.tag_name}')
+        self.write(f"<{node.tag_name}")
 
         for attr in node.attributes:
             if attr.value is not None:
                 escaped_value = self._escape_attr(attr.value)
                 self.write(f' {attr.name}="{escaped_value}"')
             else:
-                self.write(f' {attr.name}')
+                self.write(f" {attr.name}")
 
-        self.write('>')
+        self.write(">")
 
     def visit_TextNode(self, node: TextNode):
         """Render plain text."""
@@ -160,7 +161,7 @@ class Renderer(ASTVisitor):
         iterable = self._eval_expression(node.iterable)
 
         # Convert to list if needed
-        if not hasattr(iterable, '__iter__'):
+        if not hasattr(iterable, "__iter__"):
             iterable = []
 
         items = list(iterable)
@@ -207,12 +208,12 @@ class Renderer(ASTVisitor):
     def visit_IncludeTag(self, node: IncludeTag):
         """Render an include tag."""
         # Simplified: just output a comment
-        self.write(f'<!-- include: {node.template_name} -->')
+        self.write(f"<!-- include: {node.template_name} -->")
 
     def visit_ExtendsTag(self, node: ExtendsTag):
         """Render an extends tag."""
         # Simplified: just output a comment
-        self.write(f'<!-- extends: {node.parent_template} -->')
+        self.write(f"<!-- extends: {node.parent_template} -->")
 
     def visit_LoadTag(self, node: LoadTag):
         """Render a load tag."""
@@ -222,7 +223,9 @@ class Renderer(ASTVisitor):
     def visit_CsrfTokenTag(self, node: CsrfTokenTag):
         """Render a CSRF token tag."""
         # Simplified: output a placeholder
-        self.write('<input type="hidden" name="csrfmiddlewaretoken" value="csrf_token_placeholder">')
+        self.write(
+            '<input type="hidden" name="csrfmiddlewaretoken" value="csrf_token_placeholder">'
+        )
 
     def visit_Comment(self, node: Comment):
         """Render a template comment (don't output anything)."""
@@ -244,7 +247,7 @@ class Renderer(ASTVisitor):
 
             # Apply lookups
             for lookup in expr.lookups:
-                if lookup.type == 'attribute':
+                if lookup.type == "attribute":
                     # Attribute access - prioritize dict keys over attributes
                     if isinstance(value, dict) and lookup.value in value:
                         value = value[lookup.value]
@@ -254,7 +257,7 @@ class Renderer(ASTVisitor):
                         value = None
                         break
 
-                elif lookup.type == 'index':
+                elif lookup.type == "index":
                     # Index access
                     try:
                         value = value[lookup.value]
@@ -277,25 +280,25 @@ class Renderer(ASTVisitor):
             left = self._eval_expression(condition.left)
             right = self._eval_expression(condition.right)
 
-            if condition.operator == '==':
+            if condition.operator == "==":
                 return left == right
-            elif condition.operator == '!=':
+            elif condition.operator == "!=":
                 return left != right
-            elif condition.operator == '<':
+            elif condition.operator == "<":
                 return left < right
-            elif condition.operator == '>':
+            elif condition.operator == ">":
                 return left > right
-            elif condition.operator == '<=':
+            elif condition.operator == "<=":
                 return left <= right
-            elif condition.operator == '>=':
+            elif condition.operator == ">=":
                 return left >= right
-            elif condition.operator == 'in':
+            elif condition.operator == "in":
                 return left in right if right else False
 
         elif isinstance(condition, BooleanOp):
-            if condition.operator == 'and':
+            if condition.operator == "and":
                 return all(self._eval_condition(c) for c in condition.operands)
-            elif condition.operator == 'or':
+            elif condition.operator == "or":
                 return any(self._eval_condition(c) for c in condition.operands)
 
         return False
@@ -304,9 +307,9 @@ class Renderer(ASTVisitor):
         """Determine if a value is truthy."""
         if value is None or value is False:
             return False
-        if value == 0 or value == '':
+        if value == 0 or value == "":
             return False
-        if hasattr(value, '__len__') and len(value) == 0:
+        if hasattr(value, "__len__") and len(value) == 0:
             return False
         return True
 
@@ -335,9 +338,9 @@ class Renderer(ASTVisitor):
         words = str(value).split()
         if len(words) <= num_words:
             return str(value)
-        return ' '.join(words[:num_words]) + '...'
+        return " ".join(words[:num_words]) + "..."
 
-    def _filter_date(self, value: Any, format_str: str = '%Y-%m-%d') -> str:
+    def _filter_date(self, value: Any, format_str: str = "%Y-%m-%d") -> str:
         """Format a date (simplified)."""
         # Simplified: just return string representation
         return str(value)
@@ -349,20 +352,20 @@ class Renderer(ASTVisitor):
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters."""
         return (
-            text.replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
-            .replace('"', '&quot;')
-            .replace("'", '&#x27;')
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&#x27;")
         )
 
     def _escape_attr(self, text: str) -> str:
         """Escape attribute values."""
         return (
-            text.replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
-            .replace('"', '&quot;')
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
         )
 
 
@@ -384,7 +387,7 @@ def render(template: str, context: Optional[Dict[str, Any]] = None) -> str:
     return renderer.render(ast)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test the renderer
     template = """
     <div class="container">
@@ -407,13 +410,13 @@ if __name__ == '__main__':
     """
 
     context = {
-        'user': {
-            'name': 'Alice',
-            'email': 'alice@example.com',
-            'items': [
-                {'title': 'Book', 'price': '$10'},
-                {'title': 'Pen', 'price': '$2'},
-            ]
+        "user": {
+            "name": "Alice",
+            "email": "alice@example.com",
+            "items": [
+                {"title": "Book", "price": "$10"},
+                {"title": "Pen", "price": "$2"},
+            ],
         }
     }
 

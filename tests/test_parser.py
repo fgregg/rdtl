@@ -3,8 +3,9 @@ Test suite for the parser.
 """
 
 import unittest
-from rdtl.parser import parse
+
 from rdtl.ast_nodes import *
+from rdtl.parser import parse
 
 
 class TestParser(unittest.TestCase):
@@ -20,12 +21,12 @@ class TestParser(unittest.TestCase):
 
         div = ast.children[0]
         self.assertIsInstance(div, HTMLElement)
-        self.assertEqual(div.tag_name, 'div')
+        self.assertEqual(div.tag_name, "div")
         self.assertEqual(len(div.children), 1)
 
         text = div.children[0]
         self.assertIsInstance(text, TextNode)
-        self.assertEqual(text.content, 'Hello World')
+        self.assertEqual(text.content, "Hello World")
 
     def test_html_with_attributes(self):
         """Test parsing HTML with attributes."""
@@ -34,10 +35,10 @@ class TestParser(unittest.TestCase):
 
         div = ast.children[0]
         self.assertEqual(len(div.attributes), 2)
-        self.assertEqual(div.attributes[0].name, 'class')
-        self.assertEqual(div.attributes[0].value, 'container')
-        self.assertEqual(div.attributes[1].name, 'id')
-        self.assertEqual(div.attributes[1].value, 'main')
+        self.assertEqual(div.attributes[0].name, "class")
+        self.assertEqual(div.attributes[0].value, "container")
+        self.assertEqual(div.attributes[1].name, "id")
+        self.assertEqual(div.attributes[1].value, "main")
 
     def test_nested_html(self):
         """Test nested HTML elements."""
@@ -58,7 +59,7 @@ class TestParser(unittest.TestCase):
                 break
 
         self.assertIsNotNone(div)
-        self.assertEqual(div.tag_name, 'div')
+        self.assertEqual(div.tag_name, "div")
 
         # Find the p tag
         p = None
@@ -68,7 +69,7 @@ class TestParser(unittest.TestCase):
                 break
 
         self.assertIsNotNone(p)
-        self.assertEqual(p.tag_name, 'p')
+        self.assertEqual(p.tag_name, "p")
 
         # Find the span tag
         span = None
@@ -78,7 +79,7 @@ class TestParser(unittest.TestCase):
                 break
 
         self.assertIsNotNone(span)
-        self.assertEqual(span.tag_name, 'span')
+        self.assertEqual(span.tag_name, "span")
 
     def test_void_elements(self):
         """Test void HTML elements."""
@@ -87,7 +88,7 @@ class TestParser(unittest.TestCase):
 
         img = ast.children[0]
         self.assertIsInstance(img, VoidElement)
-        self.assertEqual(img.tag_name, 'img')
+        self.assertEqual(img.tag_name, "img")
         self.assertEqual(len(img.attributes), 2)
 
     def test_simple_variable(self):
@@ -99,7 +100,7 @@ class TestParser(unittest.TestCase):
         var = p.children[0]
 
         self.assertIsInstance(var, Variable)
-        self.assertEqual(var.expression.base, 'user')
+        self.assertEqual(var.expression.base, "user")
         self.assertEqual(len(var.filters), 0)
 
     def test_variable_with_lookup(self):
@@ -109,10 +110,10 @@ class TestParser(unittest.TestCase):
 
         var = ast.children[0]
         self.assertIsInstance(var, Variable)
-        self.assertEqual(var.expression.base, 'user')
+        self.assertEqual(var.expression.base, "user")
         self.assertEqual(len(var.expression.lookups), 1)
-        self.assertEqual(var.expression.lookups[0].type, 'attribute')
-        self.assertEqual(var.expression.lookups[0].value, 'name')
+        self.assertEqual(var.expression.lookups[0].type, "attribute")
+        self.assertEqual(var.expression.lookups[0].value, "name")
 
     def test_variable_with_filter(self):
         """Test variable with filter."""
@@ -121,7 +122,7 @@ class TestParser(unittest.TestCase):
 
         var = ast.children[0]
         self.assertEqual(len(var.filters), 1)
-        self.assertEqual(var.filters[0].name, 'upper')
+        self.assertEqual(var.filters[0].name, "upper")
         self.assertEqual(len(var.filters[0].args), 0)
 
     def test_variable_with_filter_args(self):
@@ -130,9 +131,9 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         var = ast.children[0]
-        self.assertEqual(var.filters[0].name, 'date')
+        self.assertEqual(var.filters[0].name, "date")
         self.assertEqual(len(var.filters[0].args), 1)
-        self.assertEqual(var.filters[0].args[0], 'Y-m-d')
+        self.assertEqual(var.filters[0].args[0], "Y-m-d")
 
     def test_if_block(self):
         """Test if block."""
@@ -151,7 +152,7 @@ class TestParser(unittest.TestCase):
 
         self.assertIsNotNone(if_block)
         self.assertIsInstance(if_block.if_condition, SimpleCondition)
-        self.assertEqual(if_block.if_condition.expression.base, 'user')
+        self.assertEqual(if_block.if_condition.expression.base, "user")
         self.assertIsNone(if_block.else_children)
 
         # Check if body
@@ -162,7 +163,7 @@ class TestParser(unittest.TestCase):
                 break
 
         self.assertIsNotNone(p)
-        self.assertEqual(p.tag_name, 'p')
+        self.assertEqual(p.tag_name, "p")
 
     def test_if_else_block(self):
         """Test if/else block."""
@@ -227,8 +228,8 @@ class TestParser(unittest.TestCase):
                 break
 
         self.assertIsNotNone(for_block)
-        self.assertEqual(for_block.loop_var, 'item')
-        self.assertEqual(for_block.iterable.base, 'items')
+        self.assertEqual(for_block.loop_vars, ["item"])
+        self.assertEqual(for_block.iterable.base, "items")
         self.assertIsNone(for_block.empty_children)
 
     def test_for_loop_with_empty(self):
@@ -267,7 +268,7 @@ class TestParser(unittest.TestCase):
                 break
 
         self.assertIsNotNone(block)
-        self.assertEqual(block.name, 'content')
+        self.assertEqual(block.name, "content")
 
     def test_with_block(self):
         """Test with block."""
@@ -286,7 +287,7 @@ class TestParser(unittest.TestCase):
 
         self.assertIsNotNone(with_block)
         self.assertEqual(len(with_block.assignments), 1)
-        self.assertEqual(with_block.assignments[0][0], 'total')
+        self.assertEqual(with_block.assignments[0][0], "total")
 
     def test_include_tag(self):
         """Test include tag."""
@@ -295,7 +296,7 @@ class TestParser(unittest.TestCase):
 
         include = ast.children[0]
         self.assertIsInstance(include, IncludeTag)
-        self.assertEqual(include.template_name, 'header.html')
+        self.assertEqual(include.template_name, "header.html")
 
     def test_extends_tag(self):
         """Test extends tag."""
@@ -304,20 +305,20 @@ class TestParser(unittest.TestCase):
 
         extends = ast.children[0]
         self.assertIsInstance(extends, ExtendsTag)
-        self.assertEqual(extends.parent_template, 'base.html')
+        self.assertEqual(extends.parent_template, "base.html")
 
     def test_load_tag(self):
         """Test load tag."""
-        template = '{% load static %}'
+        template = "{% load static %}"
         ast = parse(template)
 
         load = ast.children[0]
         self.assertIsInstance(load, LoadTag)
-        self.assertEqual(load.library, 'static')
+        self.assertEqual(load.libraries, ["static"])
 
     def test_csrf_token_tag(self):
         """Test csrf_token tag."""
-        template = '{% csrf_token %}'
+        template = "{% csrf_token %}"
         ast = parse(template)
 
         csrf = ast.children[0]
@@ -325,12 +326,12 @@ class TestParser(unittest.TestCase):
 
     def test_comment(self):
         """Test template comments."""
-        template = '{# This is a comment #}'
+        template = "{# This is a comment #}"
         ast = parse(template)
 
         comment = ast.children[0]
         self.assertIsInstance(comment, Comment)
-        self.assertEqual(comment.content, ' This is a comment ')
+        self.assertEqual(comment.content, " This is a comment ")
 
     def test_complex_nested_structure(self):
         """Test complex nested template."""
@@ -366,12 +367,12 @@ class TestParser(unittest.TestCase):
     def test_comparison_operators(self):
         """Test all comparison operators."""
         templates = [
-            ("{% if x == y %}A{% endif %}", '=='),
-            ("{% if x != y %}A{% endif %}", '!='),
-            ("{% if x < y %}A{% endif %}", '<'),
-            ("{% if x > y %}A{% endif %}", '>'),
-            ("{% if x <= y %}A{% endif %}", '<='),
-            ("{% if x >= y %}A{% endif %}", '>='),
+            ("{% if x == y %}A{% endif %}", "=="),
+            ("{% if x != y %}A{% endif %}", "!="),
+            ("{% if x < y %}A{% endif %}", "<"),
+            ("{% if x > y %}A{% endif %}", ">"),
+            ("{% if x <= y %}A{% endif %}", "<="),
+            ("{% if x >= y %}A{% endif %}", ">="),
         ]
 
         for template, op in templates:
@@ -405,8 +406,8 @@ class TestParser(unittest.TestCase):
 
         var = ast.children[0]
         self.assertEqual(len(var.filters), 2)
-        self.assertEqual(var.filters[0].name, 'lower')
-        self.assertEqual(var.filters[1].name, 'truncatewords')
+        self.assertEqual(var.filters[0].name, "lower")
+        self.assertEqual(var.filters[1].name, "truncatewords")
 
     def test_bracket_notation_not_supported(self):
         """Test that bracket notation is rejected (Django doesn't support it)."""
@@ -420,14 +421,14 @@ class TestParser(unittest.TestCase):
     def test_numeric_index_via_dot(self):
         """Test numeric index access using dot notation (Django style)."""
         # Django uses dot notation for numeric indices
-        template = '{{ items.0 }}'
+        template = "{{ items.0 }}"
         ast = parse(template)
 
         var = ast.children[0]
         self.assertEqual(len(var.expression.lookups), 1)
-        self.assertEqual(var.expression.lookups[0].type, 'attribute')
-        self.assertEqual(var.expression.lookups[0].value, '0')
+        self.assertEqual(var.expression.lookups[0].type, "attribute")
+        self.assertEqual(var.expression.lookups[0].value, "0")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

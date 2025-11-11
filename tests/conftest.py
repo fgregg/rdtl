@@ -2,12 +2,13 @@
 Pytest configuration and shared fixtures for RDTL tests.
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
+
+from rdtl.formatter import FormatOptions, format_template
 from rdtl.parser import parse
-from rdtl.lexer import tokenize
 from rdtl.validator import validate_template
-from rdtl.formatter import format_template, FormatOptions
 
 
 @pytest.fixture

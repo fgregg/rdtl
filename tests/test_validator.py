@@ -3,7 +3,8 @@ Test suite for RDTL validator.
 """
 
 import unittest
-from rdtl.validator import validate_template, RDTLValidator
+
+from rdtl.validator import validate_template
 
 
 class TestRDTLValidator(unittest.TestCase):
@@ -129,8 +130,9 @@ class TestRDTLValidator(unittest.TestCase):
     def test_invalid_same_quotes_in_attribute(self):
         """Test that same quote type in attribute templates is rejected."""
         # This should fail during lexing/parsing, not validation
-        from lexer import tokenize
-        template = '''<div class="{% if x == "y" %}active{% endif %}">'''
+        from rdtl.lexer import tokenize
+
+        template = """<div class="{% if x == "y" %}active{% endif %}">"""
         with self.assertRaises(SyntaxError) as cm:
             tokenize(template)
         self.assertIn('Cannot use " quotes', str(cm.exception))
@@ -200,7 +202,9 @@ class TestRDTLValidator(unittest.TestCase):
         """
         is_valid, errors = validate_template(template)
         self.assertFalse(is_valid, "Template should be invalid")
-        self.assertTrue(any("else" in error.lower() and "outside" in error for error in errors))
+        self.assertTrue(
+            any("else" in error.lower() and "outside" in error for error in errors)
+        )
 
     def test_invalid_empty_outside_for(self):
         """Test that empty outside for block is detected."""
@@ -215,7 +219,9 @@ class TestRDTLValidator(unittest.TestCase):
         """
         is_valid, errors = validate_template(template)
         self.assertFalse(is_valid, "Template should be invalid")
-        self.assertTrue(any("empty" in error.lower() and "outside" in error for error in errors))
+        self.assertTrue(
+            any("empty" in error.lower() and "outside" in error for error in errors)
+        )
 
     def test_invalid_unclosed_html_tag(self):
         """Test that unclosed HTML tags are detected."""
@@ -332,21 +338,23 @@ class TestValidatorFromFiles(unittest.TestCase):
 
     def test_valid_basic_file(self):
         """Test the valid_basic.html example."""
-        with open('examples/valid_basic.html', 'r') as f:
+        with open("examples/valid_basic.html") as f:
             template = f.read()
         is_valid, errors = validate_template(template)
         self.assertTrue(is_valid, f"valid_basic.html should be valid. Errors: {errors}")
 
     def test_valid_nested_file(self):
         """Test the valid_nested.html example."""
-        with open('examples/valid_nested.html', 'r') as f:
+        with open("examples/valid_nested.html") as f:
             template = f.read()
         is_valid, errors = validate_template(template)
-        self.assertTrue(is_valid, f"valid_nested.html should be valid. Errors: {errors}")
+        self.assertTrue(
+            is_valid, f"valid_nested.html should be valid. Errors: {errors}"
+        )
 
     def test_invalid_attr_file(self):
         """Test the invalid_attr.html example (template in attribute name)."""
-        with open('examples/invalid_attr.html', 'r') as f:
+        with open("examples/invalid_attr.html") as f:
             template = f.read()
         is_valid, errors = validate_template(template)
         self.assertFalse(is_valid, "invalid_attr.html should be invalid")
@@ -355,12 +363,12 @@ class TestValidatorFromFiles(unittest.TestCase):
 
     def test_invalid_interleaved_file(self):
         """Test the invalid_interleaved.html example."""
-        with open('examples/invalid_interleaved.html', 'r') as f:
+        with open("examples/invalid_interleaved.html") as f:
             template = f.read()
         is_valid, errors = validate_template(template)
         self.assertFalse(is_valid, "invalid_interleaved.html should be invalid")
         self.assertTrue(len(errors) > 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

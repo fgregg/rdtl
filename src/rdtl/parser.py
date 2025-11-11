@@ -5,12 +5,14 @@ Converts token stream into an Abstract Syntax Tree (AST).
 """
 
 from typing import List, Optional, Union
-from rdtl.lexer import Token, TokenType, Lexer
+
 from rdtl.ast_nodes import *
+from rdtl.lexer import Lexer, Token, TokenType
 
 
 class ParseError(Exception):
     """Raised when parsing fails."""
+
     pass
 
 
@@ -22,12 +24,33 @@ class Parser:
     """
 
     VOID_ELEMENTS = {
-        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-        'link', 'meta', 'param', 'source', 'track', 'wbr'
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
     }
 
     # Known Django block tags
-    KNOWN_BLOCK_TAGS = {'if', 'for', 'block', 'with', 'autoescape', 'filter', 'spaceless', 'verbatim'}
+    KNOWN_BLOCK_TAGS = {
+        "if",
+        "for",
+        "block",
+        "with",
+        "autoescape",
+        "filter",
+        "spaceless",
+        "verbatim",
+    }
 
     def __init__(self, tokens: List[Token], discovered_blocks: set = None):
         self.tokens = tokens
@@ -197,10 +220,12 @@ class Parser:
         """Parse HTML attributes (supports both static and dynamic names)."""
         attributes = []
 
-        while self.match(TokenType.ATTR_NAME) or self.match(TokenType.ATTR_NAME_DYNAMIC):
+        while self.match(TokenType.ATTR_NAME) or self.match(
+            TokenType.ATTR_NAME_DYNAMIC
+        ):
             name_token = self.advance()
             name = name_token.value
-            is_dynamic = (name_token.type == TokenType.ATTR_NAME_DYNAMIC)
+            is_dynamic = name_token.type == TokenType.ATTR_NAME_DYNAMIC
 
             # Check for attribute value
             value = None
@@ -208,7 +233,9 @@ class Parser:
                 value_token = self.advance()
                 value = value_token.value
 
-            attributes.append(Attribute(name=name, value=value, is_dynamic_name=is_dynamic))
+            attributes.append(
+                Attribute(name=name, value=value, is_dynamic_name=is_dynamic)
+            )
 
         return attributes
 
@@ -273,13 +300,11 @@ class Parser:
             return self.advance().value
         elif self.match(TokenType.NUMBER):
             value = self.advance().value
-            return float(value) if '.' in value else int(value)
+            return float(value) if "." in value else int(value)
         elif self.match(TokenType.IDENTIFIER):
             return self.advance().value
         else:
-            raise ParseError(
-                f"Expected filter argument at line {self.current().line}"
-            )
+            raise ParseError(f"Expected filter argument at line {self.current().line}")
 
     # ========================================================================
     # Expression parsing
@@ -299,12 +324,12 @@ class Parser:
         # Check for literal values first
         if self.match(TokenType.NUMBER):
             value = self.advance().value
-            num_value = float(value) if '.' in value else int(value)
-            return Literal(value=num_value, type='number')
+            num_value = float(value) if "." in value else int(value)
+            return Literal(value=num_value, type="number")
 
         if self.match(TokenType.STRING):
             value = self.advance().value
-            return Literal(value=value, type='string')
+            return Literal(value=value, type="string")
 
         # Parse base identifier
         base_token = self.expect(TokenType.IDENTIFIER)
@@ -324,8 +349,10 @@ class Parser:
             # Check 1: No space before the dot
             # The dot should immediately follow the previous token
             expected_dot_col = prev_token.column + len(prev_token.value)
-            if (dot_token.line != prev_token.line or
-                dot_token.column != expected_dot_col):
+            if (
+                dot_token.line != prev_token.line
+                or dot_token.column != expected_dot_col
+            ):
                 raise ParseError(
                     f"No spaces allowed before '.' in lookups at line {dot_token.line}. "
                     f"Use 'user.name' not 'user . name'"
@@ -334,8 +361,10 @@ class Parser:
             # Check 2: No space after the dot
             # The next token should immediately follow the dot
             next_token = self.current()
-            if (next_token.line != dot_token.line or
-                next_token.column != dot_token.column + 1):
+            if (
+                next_token.line != dot_token.line
+                or next_token.column != dot_token.column + 1
+            ):
                 raise ParseError(
                     f"No spaces allowed after '.' in lookups at line {dot_token.line}. "
                     f"Use 'user.name' not 'user . name'"
@@ -345,11 +374,11 @@ class Parser:
             # e.g., user.name or items.0
             if self.match(TokenType.IDENTIFIER):
                 attr_token = self.advance()
-                lookups.append(Lookup(type='attribute', value=attr_token.value))
+                lookups.append(Lookup(type="attribute", value=attr_token.value))
                 prev_token = attr_token  # Track for next iteration
             elif self.match(TokenType.NUMBER):
                 num_token = self.advance()
-                lookups.append(Lookup(type='attribute', value=num_token.value))
+                lookups.append(Lookup(type="attribute", value=num_token.value))
                 prev_token = num_token  # Track for next iteration
             else:
                 raise ParseError(
@@ -358,7 +387,9 @@ class Parser:
 
         return Expression(base=base, lookups=lookups)
 
-    def parse_expression_with_filters(self) -> Union[Expression, Literal, FilteredExpression]:
+    def parse_expression_with_filters(
+        self,
+    ) -> Union[Expression, Literal, FilteredExpression]:
         """
         Parse an expression with optional filters.
 
@@ -503,23 +534,33 @@ class Parser:
         self.expect(TokenType.TEMPLATE_TAG_END)
 
         # Parse if body
-        if_children = self.parse_block_body([TokenType.ELIF, TokenType.ELSE, TokenType.ENDIF])
+        if_children = self.parse_block_body(
+            [TokenType.ELIF, TokenType.ELSE, TokenType.ENDIF]
+        )
 
         # Parse elif branches
         elif_branches = []
-        while self.match(TokenType.TEMPLATE_TAG_START) and self.peek().type == TokenType.ELIF:
+        while (
+            self.match(TokenType.TEMPLATE_TAG_START)
+            and self.peek().type == TokenType.ELIF
+        ):
             self.expect(TokenType.TEMPLATE_TAG_START)
             self.expect(TokenType.ELIF)
 
             elif_condition = self.parse_condition()
             self.expect(TokenType.TEMPLATE_TAG_END)
 
-            elif_children = self.parse_block_body([TokenType.ELIF, TokenType.ELSE, TokenType.ENDIF])
+            elif_children = self.parse_block_body(
+                [TokenType.ELIF, TokenType.ELSE, TokenType.ENDIF]
+            )
             elif_branches.append((elif_condition, elif_children))
 
         # Parse else branch
         else_children = None
-        if self.match(TokenType.TEMPLATE_TAG_START) and self.peek().type == TokenType.ELSE:
+        if (
+            self.match(TokenType.TEMPLATE_TAG_START)
+            and self.peek().type == TokenType.ELSE
+        ):
             self.expect(TokenType.TEMPLATE_TAG_START)
             self.expect(TokenType.ELSE)
             self.expect(TokenType.TEMPLATE_TAG_END)
@@ -535,7 +576,7 @@ class Parser:
             if_condition=if_condition,
             if_children=if_children,
             elif_branches=elif_branches,
-            else_children=else_children
+            else_children=else_children,
         )
 
     def parse_for_block(self) -> ForBlock:
@@ -564,7 +605,10 @@ class Parser:
 
         # Parse empty clause
         empty_children = None
-        if self.match(TokenType.TEMPLATE_TAG_START) and self.peek().type == TokenType.EMPTY:
+        if (
+            self.match(TokenType.TEMPLATE_TAG_START)
+            and self.peek().type == TokenType.EMPTY
+        ):
             self.expect(TokenType.TEMPLATE_TAG_START)
             self.expect(TokenType.EMPTY)
             self.expect(TokenType.TEMPLATE_TAG_END)
@@ -580,7 +624,7 @@ class Parser:
             loop_vars=loop_vars,
             iterable=iterable,
             children=children,
-            empty_children=empty_children
+            empty_children=empty_children,
         )
 
     def parse_block_tag(self) -> BlockTag:
@@ -688,7 +732,9 @@ class Parser:
             return IncludeTag(template_name=template_name, context_vars=context_vars)
         else:
             # For variable includes, convert expression to string representation
-            return IncludeTag(template_name=str(template_name), context_vars=context_vars)
+            return IncludeTag(
+                template_name=str(template_name), context_vars=context_vars
+            )
 
     def parse_extends_tag(self) -> ExtendsTag:
         """Parse {% extends "base.html" %}."""
@@ -711,13 +757,18 @@ class Parser:
         while not self.match(TokenType.TEMPLATE_TAG_END):
             token = self.current()
             # Accept identifiers or keyword tokens as library names
-            if token.type in (TokenType.IDENTIFIER, TokenType.STATIC, TokenType.URL) or token.value.isidentifier():
+            if (
+                token.type in (TokenType.IDENTIFIER, TokenType.STATIC, TokenType.URL)
+                or token.value.isidentifier()
+            ):
                 libraries.append(self.advance().value)
             else:
                 break
 
         if not libraries:
-            raise ParseError(f"Expected at least one library name in load tag at line {self.current().line}")
+            raise ParseError(
+                f"Expected at least one library name in load tag at line {self.current().line}"
+            )
 
         self.expect(TokenType.TEMPLATE_TAG_END)
 
@@ -733,7 +784,9 @@ class Parser:
         elif self.match(TokenType.IDENTIFIER):
             view_name = self.advance().value
         else:
-            raise ParseError(f"Expected view name in url tag at line {self.current().line}")
+            raise ParseError(
+                f"Expected view name in url tag at line {self.current().line}"
+            )
 
         # Parse args and kwargs
         args = []
@@ -780,7 +833,9 @@ class Parser:
         elif self.match(TokenType.IDENTIFIER):
             path = self.advance().value
         else:
-            raise ParseError(f"Expected path in static tag at line {self.current().line}")
+            raise ParseError(
+                f"Expected path in static tag at line {self.current().line}"
+            )
 
         # Check for 'as' keyword
         as_var = None
@@ -848,7 +903,7 @@ class Parser:
         self.expect(TokenType.LOREM)
 
         count = 1
-        method = 'w'
+        method = "w"
         random = False
 
         # Parse optional arguments
@@ -857,12 +912,12 @@ class Parser:
 
         if self.match(TokenType.IDENTIFIER):
             method_val = self.advance().value.lower()
-            if method_val in ('w', 'p', 'b'):
+            if method_val in ("w", "p", "b"):
                 method = method_val
 
         if self.match(TokenType.IDENTIFIER):
             random_val = self.current().value.lower()
-            if random_val == 'random':
+            if random_val == "random":
                 random = True
                 self.advance()
 
@@ -878,7 +933,9 @@ class Parser:
 
         # Expect 'by'
         if not self.match(TokenType.BY):
-            raise ParseError(f"Expected 'by' in regroup tag at line {self.current().line}")
+            raise ParseError(
+                f"Expected 'by' in regroup tag at line {self.current().line}"
+            )
         self.advance()  # BY
 
         # Parse attribute
@@ -886,7 +943,9 @@ class Parser:
 
         # Expect 'as'
         if not self.match(TokenType.AS):
-            raise ParseError(f"Expected 'as' in regroup tag at line {self.current().line}")
+            raise ParseError(
+                f"Expected 'as' in regroup tag at line {self.current().line}"
+            )
         self.advance()  # AS
 
         # Parse variable name
@@ -918,7 +977,9 @@ class Parser:
                     elif self.match(TokenType.IDENTIFIER):
                         value = self.advance().value
                     else:
-                        raise ParseError(f"Expected value after '=' at line {self.current().line}")
+                        raise ParseError(
+                            f"Expected value after '=' at line {self.current().line}"
+                        )
 
                     updates[key] = value
             else:
@@ -949,7 +1010,7 @@ class Parser:
 
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        raw_content = ' '.join(content_parts).strip()
+        raw_content = " ".join(content_parts).strip()
         return SingleTag(tag_name=tag_name, raw_content=raw_content)
 
     def parse_generic_block_tag(self):
@@ -972,7 +1033,7 @@ class Parser:
             args_parts.append(token.value)
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        raw_args = ' '.join(args_parts).strip()
+        raw_args = " ".join(args_parts).strip()
 
         # Parse block body until {% endTAGNAME %}
         children = []
@@ -982,7 +1043,7 @@ class Parser:
                 next_token = self.peek()
                 if next_token.type == TokenType.IDENTIFIER:
                     end_tag_name = next_token.value.lower()
-                    if end_tag_name == f'end{tag_name.lower()}':
+                    if end_tag_name == f"end{tag_name.lower()}":
                         # Found matching end tag
                         self.expect(TokenType.TEMPLATE_TAG_START)
                         self.expect(TokenType.IDENTIFIER)  # end{tagname}
@@ -1092,7 +1153,7 @@ class Parser:
             token = self.advance()
             content_parts.append(token.value)
 
-        content = ''.join(content_parts)
+        content = "".join(content_parts)
         return VerbatimBlock(content=content)
 
     def parse_autoescape_block(self) -> AutoescapeBlock:
@@ -1103,7 +1164,7 @@ class Parser:
         mode_token = self.expect(TokenType.IDENTIFIER)
         mode = mode_token.value.lower()
 
-        if mode not in ('on', 'off'):
+        if mode not in ("on", "off"):
             raise ParseError(
                 f"Autoescape mode must be 'on' or 'off', got '{mode}' at line {mode_token.line}"
             )
@@ -1154,7 +1215,7 @@ class Parser:
             while self.match(TokenType.OR):
                 self.advance()
                 operands.append(self.parse_and_condition())
-            return BooleanOp(operator='or', operands=operands)
+            return BooleanOp(operator="or", operands=operands)
 
         return left
 
@@ -1167,7 +1228,7 @@ class Parser:
             while self.match(TokenType.AND):
                 self.advance()
                 operands.append(self.parse_not_condition())
-            return BooleanOp(operator='and', operands=operands)
+            return BooleanOp(operator="and", operands=operands)
 
         return left
 
@@ -1190,18 +1251,24 @@ class Parser:
         left = self.parse_expression_with_filters()
 
         # Check for comparison operator
-        if self.match(TokenType.EQ, TokenType.NE, TokenType.LT, TokenType.GT,
-                     TokenType.LE, TokenType.GE):
+        if self.match(
+            TokenType.EQ,
+            TokenType.NE,
+            TokenType.LT,
+            TokenType.GT,
+            TokenType.LE,
+            TokenType.GE,
+        ):
             op_token = self.advance()
             right = self.parse_expression_with_filters()
 
             op_map = {
-                TokenType.EQ: '==',
-                TokenType.NE: '!=',
-                TokenType.LT: '<',
-                TokenType.GT: '>',
-                TokenType.LE: '<=',
-                TokenType.GE: '>=',
+                TokenType.EQ: "==",
+                TokenType.NE: "!=",
+                TokenType.LT: "<",
+                TokenType.GT: ">",
+                TokenType.LE: "<=",
+                TokenType.GE: ">=",
             }
 
             return Comparison(left=left, operator=op_map[op_token.type], right=right)
@@ -1210,7 +1277,7 @@ class Parser:
         if self.match(TokenType.IN):
             self.advance()
             right = self.parse_expression_with_filters()
-            return Comparison(left=left, operator='in', right=right)
+            return Comparison(left=left, operator="in", right=right)
 
         # Simple expression (truthy check)
         return SimpleCondition(expression=left, negated=False)
@@ -1243,8 +1310,9 @@ def parse(content: str) -> Document:
     """
     # Pass 1: Discover block tags
     import re
+
     discovered_blocks = set()
-    pattern = re.compile(r'\{%\s*end(\w+)')
+    pattern = re.compile(r"\{%\s*end(\w+)")
     for match in pattern.finditer(content):
         discovered_blocks.add(match.group(1).lower())
 
@@ -1255,7 +1323,7 @@ def parse(content: str) -> Document:
     return parser.parse()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test the parser
     template = """
     <div class="container">

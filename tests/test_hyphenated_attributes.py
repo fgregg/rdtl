@@ -4,16 +4,16 @@ Test hyphenated static attribute names (Phase 1).
 Tests data-*, aria-*, hx-*, and other HTML5 attributes with hyphens.
 """
 
+from rdtl.formatter import Formatter
 from rdtl.lexer import Lexer
 from rdtl.parser import Parser
-from rdtl.formatter import Formatter
 
 
 def test_data_attributes():
     """Test data-* attributes."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Data Attributes")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div data-item="123" data-user-id="456">Content</div>'
 
@@ -25,7 +25,7 @@ def test_data_attributes():
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attributes
     html_element = ast.children[0]
@@ -34,7 +34,9 @@ def test_data_attributes():
     assert html_element.attributes[0].value == "123"
     assert html_element.attributes[1].name == "data-user-id"
     assert html_element.attributes[1].value == "456"
-    print(f"✓ Attributes parsed correctly: {[attr.name for attr in html_element.attributes]}")
+    print(
+        f"✓ Attributes parsed correctly: {[attr.name for attr in html_element.attributes]}"
+    )
 
     # Format
     formatter = Formatter()
@@ -46,21 +48,21 @@ def test_data_attributes():
 
 def test_aria_attributes():
     """Test aria-* attributes."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: ARIA Attributes")
-    print("="*70)
+    print("=" * 70)
 
     template = '<button aria-label="Close" aria-pressed="false">X</button>'
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attributes
     button = ast.children[0]
@@ -76,21 +78,21 @@ def test_aria_attributes():
 
 def test_htmx_attributes():
     """Test hx-* attributes (HTMX framework)."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: HTMX Attributes")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div hx-get="/api" hx-target="#result" hx-swap="innerHTML">Load</div>'
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attributes
     div = ast.children[0]
@@ -108,21 +110,21 @@ def test_htmx_attributes():
 
 def test_alpine_attributes():
     """Test x-* attributes (Alpine.js framework)."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Alpine.js Attributes")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div x-data="{open: false}" x-show="open" x-on:click="open = true">Toggle</div>'
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attributes
     div = ast.children[0]
@@ -137,37 +139,39 @@ def test_alpine_attributes():
 
 def test_multiple_hyphens():
     """Test attributes with multiple hyphens."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Multiple Hyphens")
-    print("="*70)
+    print("=" * 70)
 
-    template = '<div data-user-profile-id="123" aria-describedby-ref="desc">Content</div>'
+    template = (
+        '<div data-user-profile-id="123" aria-describedby-ref="desc">Content</div>'
+    )
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attributes
     div = ast.children[0]
     assert len(div.attributes) == 2
     assert div.attributes[0].name == "data-user-profile-id"
     assert div.attributes[1].name == "aria-describedby-ref"
-    print(f"✓ Attributes with multiple hyphens parsed correctly")
+    print("✓ Attributes with multiple hyphens parsed correctly")
 
     print("\n✅ Multiple hyphens test passed!")
 
 
 def test_round_trip():
     """Test parse → format → re-parse for hyphenated attributes."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Round Trip")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div data-item="123" aria-label="Info" hx-get="/api">Content</div>'
 
@@ -176,7 +180,7 @@ def test_round_trip():
     tokens = lexer.tokenize()
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ First parse successful")
+    print("✓ First parse successful")
 
     # Format
     formatter = Formatter()
@@ -188,7 +192,7 @@ def test_round_trip():
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
     ast2 = parser2.parse()
-    print(f"✓ Second parse successful")
+    print("✓ Second parse successful")
 
     # Verify attributes match
     div1 = ast.children[0]
@@ -197,16 +201,16 @@ def test_round_trip():
     for attr1, attr2 in zip(div1.attributes, div2.attributes):
         assert attr1.name == attr2.name
         assert attr1.value == attr2.value
-    print(f"✓ Round trip preserves attributes")
+    print("✓ Round trip preserves attributes")
 
     print("\n✅ Round trip test passed!")
 
 
 def main():
     """Run all Phase 1 tests."""
-    print("="*70)
+    print("=" * 70)
     print("PHASE 1: HYPHENATED STATIC ATTRIBUTES TEST SUITE")
-    print("="*70)
+    print("=" * 70)
 
     try:
         test_data_attributes()
@@ -216,9 +220,9 @@ def main():
         test_multiple_hyphens()
         test_round_trip()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("🎉 ALL PHASE 1 TESTS PASSED! 🎉")
-        print("="*70)
+        print("=" * 70)
         print("\nHyphenated attributes now working:")
         print("  ✓ data-* attributes (HTML5)")
         print("  ✓ aria-* attributes (accessibility)")
@@ -226,7 +230,7 @@ def main():
         print("  ✓ x-* attributes (Alpine.js)")
         print("  ✓ Multiple hyphens in names")
         print("  ✓ Round-trip parsing")
-        print("="*70)
+        print("=" * 70)
 
     except AssertionError as e:
         print(f"\n❌ TEST FAILED: {e}")
@@ -236,5 +240,5 @@ def main():
         raise
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

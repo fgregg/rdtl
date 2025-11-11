@@ -61,7 +61,13 @@ for_close: "{%" "endfor" "%}"
 // Note: In practice, any tag NOT matching a block tag is treated as simple
 template_single_tag: include_tag
                    | trans_tag
-                   | known_simple_tag
+                   | load_tag
+                   | extends_tag
+                   | url_tag
+                   | static_tag
+                   | cycle_tag
+                   | csrf_token_tag
+                   | debug_tag
 
 include_tag: "{%" "include" QUOTED_STRING ("with" context_assignment+)? "%}"
 
@@ -71,8 +77,20 @@ trans_tag: "{%" "trans" TRANS_CONTENT "%}"
 
 TRANS_CONTENT: /[^%]+/
 
-// Known simple tags that aren't ambiguous with custom blocks
-known_simple_tag: "{%" ("load" | "extends" | "url" | "static" | "cycle" | "debug") TAG_ARGS? "%}"
+// Specific tags with their semantic requirements
+load_tag: "{%" "load" IDENTIFIER+ "%}"  // Requires at least one library name
+
+extends_tag: "{%" "extends" QUOTED_STRING "%}"  // Requires template path
+
+url_tag: "{%" "url" IDENTIFIER TAG_ARGS? "%}"  // Requires view name, optional args
+
+static_tag: "{%" "static" QUOTED_STRING "%}"  // Requires path
+
+cycle_tag: "{%" "cycle" TAG_ARGS "%}"  // Requires arguments
+
+csrf_token_tag: "{%" "csrf_token" "%}"  // No arguments
+
+debug_tag: "{%" "debug" "%}"  // No arguments
 
 TAG_ARGS: /[^%]+/
 

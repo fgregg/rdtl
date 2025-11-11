@@ -358,7 +358,7 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory:
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests (excludes slow property-based tests by default)
 pytest
 
 # Run with coverage
@@ -369,6 +369,12 @@ pytest tests/test_parser.py
 
 # Run Django comparison tests
 pytest tests/test_django_comparison.py
+
+# Run slow property-based tests (grammar generation, Django validation)
+pytest -m slow
+
+# Run ALL tests including slow ones
+pytest -m ""
 ```
 
 ## Contributing

@@ -3,16 +3,16 @@
 Test dynamic attribute names - Phase 2 (simple cases where entire name is template).
 """
 
+from rdtl.formatter import Formatter
 from rdtl.lexer import Lexer
 from rdtl.parser import Parser
-from rdtl.formatter import Formatter
 
 
 def test_simple_variable_attribute_name():
     """Test {{ attr_name }}="value" pattern."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Simple Variable Attribute Name")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div {{ attr_name }}="value">Content</div>'
 
@@ -28,7 +28,7 @@ def test_simple_variable_attribute_name():
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attribute
     div = ast.children[0]
@@ -48,89 +48,89 @@ def test_simple_variable_attribute_name():
     tokens2 = lexer2.tokenize()
     parser2 = Parser(tokens2)
     ast2 = parser2.parse()
-    print(f"✓ Round-trip successful")
+    print("✓ Round-trip successful")
 
     print("\n✅ Simple variable attribute name test passed!")
 
 
 def test_variable_with_filter():
     """Test {{ attr|filter }}="value" pattern."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Variable with Filter")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div {{ attr_name|safe }}="value">Content</div>'
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attribute
     div = ast.children[0]
     assert len(div.attributes) == 1
     assert div.attributes[0].name == "{{ attr_name|safe }}"
     assert div.attributes[0].is_dynamic_name == True
-    print(f"✓ Dynamic attribute with filter parsed correctly")
+    print("✓ Dynamic attribute with filter parsed correctly")
 
     print("\n✅ Variable with filter test passed!")
 
 
 def test_template_tag_attribute_name():
     """Test {% if x %}attr1{% else %}attr2{% endif %}="value" pattern."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Template Tag Attribute Name")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div {% if active %}data-active{% else %}data-inactive{% endif %}="true">Content</div>'
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attribute
     div = ast.children[0]
     assert len(div.attributes) == 1
-    assert '{% if active %}' in div.attributes[0].name
+    assert "{% if active %}" in div.attributes[0].name
     assert div.attributes[0].is_dynamic_name == True
-    print(f"✓ Dynamic attribute with template tag parsed correctly")
+    print("✓ Dynamic attribute with template tag parsed correctly")
 
     # Format
     formatter = Formatter()
     formatted = formatter.format(ast)
-    print(f"✓ Formatted successfully")
+    print("✓ Formatted successfully")
 
     print("\n✅ Template tag attribute name test passed!")
 
 
 def test_multiple_attributes_mixed():
     """Test mix of static and dynamic attribute names."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Mixed Static and Dynamic Attributes")
-    print("="*70)
+    print("=" * 70)
 
     template = '<div id="test" {{ dynamic_attr }}="value1" class="foo" {{ another }}="value2">Content</div>'
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attributes
     div = ast.children[0]
@@ -152,7 +152,7 @@ def test_multiple_attributes_mixed():
     assert div.attributes[3].name == "{{ another }}"
     assert div.attributes[3].is_dynamic_name == True
 
-    print(f"✓ Mixed attributes parsed correctly:")
+    print("✓ Mixed attributes parsed correctly:")
     for attr in div.attributes:
         dynamic = "[dynamic]" if attr.is_dynamic_name else "[static]"
         print(f"    {dynamic} {attr.name}={repr(attr.value)}")
@@ -162,21 +162,21 @@ def test_multiple_attributes_mixed():
 
 def test_boolean_dynamic_attribute():
     """Test dynamic boolean attribute (no value)."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Boolean Dynamic Attribute")
-    print("="*70)
+    print("=" * 70)
 
-    template = '<button {{ attr_name }}>Click</button>'
+    template = "<button {{ attr_name }}>Click</button>"
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed successfully")
+    print("✓ Lexed successfully")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Check attribute
     button = ast.children[0]
@@ -184,49 +184,49 @@ def test_boolean_dynamic_attribute():
     assert button.attributes[0].name == "{{ attr_name }}"
     assert button.attributes[0].value is None  # Boolean attribute
     assert button.attributes[0].is_dynamic_name == True
-    print(f"✓ Boolean dynamic attribute parsed correctly")
+    print("✓ Boolean dynamic attribute parsed correctly")
 
     print("\n✅ Boolean dynamic attribute test passed!")
 
 
 def test_quotes_in_attribute_name():
     """Test that quotes work independently in attribute names."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST: Quotes in Attribute Name (Independent)")
-    print("="*70)
+    print("=" * 70)
 
     # Double quotes in name, single quotes in value - should work
-    template = '<div {{ "attr" }}=\'value\'>Content</div>'
+    template = "<div {{ \"attr\" }}='value'>Content</div>"
 
     # Lex
     lexer = Lexer(template)
     tokens = lexer.tokenize()
-    print(f"✓ Lexed with double quotes in name")
+    print("✓ Lexed with double quotes in name")
 
     # Parse
     parser = Parser(tokens)
     ast = parser.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     # Now try single quotes in name, double quotes in value
     template2 = "<div {{ 'attr' }}=\"value\">Content</div>"
 
     lexer2 = Lexer(template2)
     tokens2 = lexer2.tokenize()
-    print(f"✓ Lexed with single quotes in name")
+    print("✓ Lexed with single quotes in name")
 
     parser2 = Parser(tokens2)
     ast2 = parser2.parse()
-    print(f"✓ Parsed successfully")
+    print("✓ Parsed successfully")
 
     print("\n✅ Independent quote rules test passed!")
 
 
 def main():
     """Run all Phase 2 tests."""
-    print("="*70)
+    print("=" * 70)
     print("PHASE 2: SIMPLE DYNAMIC ATTRIBUTE NAMES TEST SUITE")
-    print("="*70)
+    print("=" * 70)
 
     try:
         test_simple_variable_attribute_name()
@@ -236,17 +236,17 @@ def main():
         test_boolean_dynamic_attribute()
         test_quotes_in_attribute_name()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("🎉 ALL PHASE 2 TESTS PASSED! 🎉")
-        print("="*70)
+        print("=" * 70)
         print("\nDynamic attribute names now working:")
-        print("  ✓ {{ attr_name }}=\"value\"")
-        print("  ✓ {{ attr|filter }}=\"value\"")
-        print("  ✓ {% if x %}attr1{% else %}attr2{% endif %}=\"value\"")
+        print('  ✓ {{ attr_name }}="value"')
+        print('  ✓ {{ attr|filter }}="value"')
+        print('  ✓ {% if x %}attr1{% else %}attr2{% endif %}="value"')
         print("  ✓ Mixed static and dynamic attributes")
         print("  ✓ Boolean dynamic attributes")
         print("  ✓ Independent quote rules")
-        print("="*70)
+        print("=" * 70)
 
     except AssertionError as e:
         print(f"\n❌ TEST FAILED: {e}")
@@ -254,9 +254,10 @@ def main():
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

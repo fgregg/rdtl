@@ -5,24 +5,26 @@ This ensures our grammar matches Django's actual behavior.
 """
 
 import unittest
+
 import django
 from django.conf import settings
-from hypothesis import given, settings as hypothesis_settings, example, HealthCheck
+from hypothesis import HealthCheck, example, given
+from hypothesis import settings as hypothesis_settings
 from hypothesis import strategies as st
-from pathlib import Path
 
 # Configure Django
 if not settings.configured:
     settings.configure(
         DEBUG=True,
-        INSTALLED_APPS=['django.contrib.contenttypes'],
-        TEMPLATES=[{'BACKEND': 'django.template.backends.django.DjangoTemplates'}]
+        INSTALLED_APPS=["django.contrib.contenttypes"],
+        TEMPLATES=[{"BACKEND": "django.template.backends.django.DjangoTemplates"}],
     )
     django.setup()
 
-from django.template import Template, TemplateSyntaxError as DjangoTemplateSyntaxError
-from rdtl.parser import parse, ParseError
-from rdtl.validator import validate_template
+from django.template import Template
+from django.template import TemplateSyntaxError as DjangoTemplateSyntaxError
+
+from rdtl.parser import ParseError, parse
 
 
 class TestDjangoComparison(unittest.TestCase):
@@ -45,12 +47,12 @@ class TestDjangoComparison(unittest.TestCase):
 
     # Known invalid Django templates
     INVALID_TEMPLATES = [
-        "{{ user. name }}",      # Space after dot
-        "{{ user .name }}",      # Space before dot
-        "{{ user . name }}",     # Spaces around dot
-        "{{ items[0] }}",        # Bracket notation
-        "{{ user['name'] }}",    # Bracket notation with string
-        "{{ user[ 0 ] }}",       # Bracket with spaces
+        "{{ user. name }}",  # Space after dot
+        "{{ user .name }}",  # Space before dot
+        "{{ user . name }}",  # Spaces around dot
+        "{{ items[0] }}",  # Bracket notation
+        "{{ user['name'] }}",  # Bracket notation with string
+        "{{ user[ 0 ] }}",  # Bracket with spaces
     ]
 
     def test_valid_templates_both_accept(self):
@@ -73,13 +75,9 @@ class TestDjangoComparison(unittest.TestCase):
 
                 # Both should agree
                 self.assertTrue(
-                    django_accepts,
-                    f"Django rejected template: {template_str}"
+                    django_accepts, f"Django rejected template: {template_str}"
                 )
-                self.assertTrue(
-                    rdtl_accepts,
-                    f"RDTL rejected template: {template_str}"
-                )
+                self.assertTrue(rdtl_accepts, f"RDTL rejected template: {template_str}")
 
     def test_invalid_templates_both_reject(self):
         """Both parsers should reject known invalid templates."""
@@ -102,11 +100,10 @@ class TestDjangoComparison(unittest.TestCase):
                 # Both should reject
                 self.assertFalse(
                     django_accepts,
-                    f"Django unexpectedly accepted template: {template_str}"
+                    f"Django unexpectedly accepted template: {template_str}",
                 )
                 self.assertFalse(
-                    rdtl_accepts,
-                    f"RDTL unexpectedly accepted template: {template_str}"
+                    rdtl_accepts, f"RDTL unexpectedly accepted template: {template_str}"
                 )
 
     def test_whitespace_in_lookups_rejected_by_both(self):
@@ -210,7 +207,7 @@ class TestDjangoReferenceValidation(unittest.TestCase):
     @hypothesis_settings(
         max_examples=100,
         deadline=None,
-        suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow]
+        suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow],
     )
     @example("{{ user.name }}")
     @example("{{ user. name }}")
@@ -238,5 +235,5 @@ class TestDjangoReferenceValidation(unittest.TestCase):
             pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

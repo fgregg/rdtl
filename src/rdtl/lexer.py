@@ -4,32 +4,32 @@ Lexer (tokenizer) for RDTL.
 Converts template string into a stream of tokens.
 """
 
-import re
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List, Optional, Iterator
+from typing import List, Optional
 
 
 class TokenType(Enum):
     """Types of tokens in RDTL."""
+
     # HTML tokens
-    HTML_OPEN_TAG = auto()      # <div>
-    HTML_CLOSE_TAG = auto()     # </div>
-    HTML_SELF_CLOSE = auto()    # <br />
-    ATTR_NAME = auto()          # attribute name (static)
+    HTML_OPEN_TAG = auto()  # <div>
+    HTML_CLOSE_TAG = auto()  # </div>
+    HTML_SELF_CLOSE = auto()  # <br />
+    ATTR_NAME = auto()  # attribute name (static)
     ATTR_NAME_DYNAMIC = auto()  # attribute name (contains templates)
-    ATTR_VALUE = auto()         # attribute value
-    DOCTYPE = auto()            # <!DOCTYPE html>
-    HTML_COMMENT = auto()       # <!-- comment -->
-    CDATA = auto()              # <![CDATA[...]]>
+    ATTR_VALUE = auto()  # attribute value
+    DOCTYPE = auto()  # <!DOCTYPE html>
+    HTML_COMMENT = auto()  # <!-- comment -->
+    CDATA = auto()  # <![CDATA[...]]>
 
     # Template tokens
-    TEMPLATE_VAR_START = auto()     # {{
-    TEMPLATE_VAR_END = auto()       # }}
-    TEMPLATE_TAG_START = auto()     # {%
-    TEMPLATE_TAG_END = auto()       # %}
-    TEMPLATE_COMMENT_START = auto() # {#
-    TEMPLATE_COMMENT_END = auto()   # #}
+    TEMPLATE_VAR_START = auto()  # {{
+    TEMPLATE_VAR_END = auto()  # }}
+    TEMPLATE_TAG_START = auto()  # {%
+    TEMPLATE_TAG_END = auto()  # %}
+    TEMPLATE_COMMENT_START = auto()  # {#
+    TEMPLATE_COMMENT_END = auto()  # #}
 
     # Template keywords
     IF = auto()
@@ -72,23 +72,23 @@ class TokenType(Enum):
     BY = auto()
 
     # Operators and symbols
-    PIPE = auto()          # |
-    COLON = auto()         # :
-    COMMA = auto()         # ,
-    DOT = auto()           # .
-    EQUALS = auto()        # =
-    LPAREN = auto()        # (
-    RPAREN = auto()        # )
-    LBRACKET = auto()      # [
-    RBRACKET = auto()      # ]
+    PIPE = auto()  # |
+    COLON = auto()  # :
+    COMMA = auto()  # ,
+    DOT = auto()  # .
+    EQUALS = auto()  # =
+    LPAREN = auto()  # (
+    RPAREN = auto()  # )
+    LBRACKET = auto()  # [
+    RBRACKET = auto()  # ]
 
     # Comparison operators
-    EQ = auto()            # ==
-    NE = auto()            # !=
-    LT = auto()            # <
-    GT = auto()            # >
-    LE = auto()            # <=
-    GE = auto()            # >=
+    EQ = auto()  # ==
+    NE = auto()  # !=
+    LT = auto()  # <
+    GT = auto()  # >
+    LE = auto()  # <=
+    GE = auto()  # >=
 
     # Logical operators
     AND = auto()
@@ -110,6 +110,7 @@ class TokenType(Enum):
 @dataclass
 class Token:
     """A single token from the lexer."""
+
     type: TokenType
     value: str
     line: int
@@ -132,47 +133,47 @@ class Lexer:
 
     # Keywords that can appear in template tags
     KEYWORDS = {
-        'if': TokenType.IF,
-        'elif': TokenType.ELIF,
-        'else': TokenType.ELSE,
-        'endif': TokenType.ENDIF,
-        'for': TokenType.FOR,
-        'in': TokenType.IN,
-        'empty': TokenType.EMPTY,
-        'endfor': TokenType.ENDFOR,
-        'block': TokenType.BLOCK,
-        'endblock': TokenType.ENDBLOCK,
-        'with': TokenType.WITH,
-        'endwith': TokenType.ENDWITH,
-        'include': TokenType.INCLUDE,
-        'extends': TokenType.EXTENDS,
-        'load': TokenType.LOAD,
-        'csrf_token': TokenType.CSRF_TOKEN,
-        'autoescape': TokenType.AUTOESCAPE,
-        'endautoescape': TokenType.ENDAUTOESCAPE,
-        'comment': TokenType.COMMENT,
-        'endcomment': TokenType.ENDCOMMENT,
-        'ifchanged': TokenType.IFCHANGED,
-        'endifchanged': TokenType.ENDIFCHANGED,
-        'filter': TokenType.FILTER,
-        'endfilter': TokenType.ENDFILTER,
-        'spaceless': TokenType.SPACELESS,
-        'endspaceless': TokenType.ENDSPACELESS,
-        'verbatim': TokenType.VERBATIM,
-        'endverbatim': TokenType.ENDVERBATIM,
-        'cycle': TokenType.CYCLE,
-        'resetcycle': TokenType.RESETCYCLE,
-        'debug': TokenType.DEBUG,
-        'lorem': TokenType.LOREM,
-        'regroup': TokenType.REGROUP,
-        'querystring': TokenType.QUERYSTRING,
-        'url': TokenType.URL,
-        'static': TokenType.STATIC,
-        'as': TokenType.AS,
-        'by': TokenType.BY,
-        'and': TokenType.AND,
-        'or': TokenType.OR,
-        'not': TokenType.NOT,
+        "if": TokenType.IF,
+        "elif": TokenType.ELIF,
+        "else": TokenType.ELSE,
+        "endif": TokenType.ENDIF,
+        "for": TokenType.FOR,
+        "in": TokenType.IN,
+        "empty": TokenType.EMPTY,
+        "endfor": TokenType.ENDFOR,
+        "block": TokenType.BLOCK,
+        "endblock": TokenType.ENDBLOCK,
+        "with": TokenType.WITH,
+        "endwith": TokenType.ENDWITH,
+        "include": TokenType.INCLUDE,
+        "extends": TokenType.EXTENDS,
+        "load": TokenType.LOAD,
+        "csrf_token": TokenType.CSRF_TOKEN,
+        "autoescape": TokenType.AUTOESCAPE,
+        "endautoescape": TokenType.ENDAUTOESCAPE,
+        "comment": TokenType.COMMENT,
+        "endcomment": TokenType.ENDCOMMENT,
+        "ifchanged": TokenType.IFCHANGED,
+        "endifchanged": TokenType.ENDIFCHANGED,
+        "filter": TokenType.FILTER,
+        "endfilter": TokenType.ENDFILTER,
+        "spaceless": TokenType.SPACELESS,
+        "endspaceless": TokenType.ENDSPACELESS,
+        "verbatim": TokenType.VERBATIM,
+        "endverbatim": TokenType.ENDVERBATIM,
+        "cycle": TokenType.CYCLE,
+        "resetcycle": TokenType.RESETCYCLE,
+        "debug": TokenType.DEBUG,
+        "lorem": TokenType.LOREM,
+        "regroup": TokenType.REGROUP,
+        "querystring": TokenType.QUERYSTRING,
+        "url": TokenType.URL,
+        "static": TokenType.STATIC,
+        "as": TokenType.AS,
+        "by": TokenType.BY,
+        "and": TokenType.AND,
+        "or": TokenType.OR,
+        "not": TokenType.NOT,
     }
 
     def __init__(self, content: str):
@@ -202,7 +203,7 @@ class Lexer:
             return None
 
         self.pos += 1
-        if char == '\n':
+        if char == "\n":
             self.line += 1
             self.column = 1
         else:
@@ -212,7 +213,7 @@ class Lexer:
 
     def skip_whitespace(self):
         """Skip whitespace characters."""
-        while self.current_char() and self.current_char() in ' \t\n\r':
+        while self.current_char() and self.current_char() in " \t\n\r":
             self.advance()
 
     def read_while(self, predicate) -> str:
@@ -220,7 +221,7 @@ class Lexer:
         result = []
         while self.current_char() and predicate(self.current_char()):
             result.append(self.advance())
-        return ''.join(result)
+        return "".join(result)
 
     def read_string(self, quote: str) -> str:
         """Read a quoted string."""
@@ -236,49 +237,51 @@ class Lexer:
                 self.advance()  # Skip closing quote
                 break
 
-            if char == '\\':
+            if char == "\\":
                 self.advance()
                 next_char = self.current_char()
-                if next_char in ('"', "'", '\\'):
+                if next_char in ('"', "'", "\\"):
                     result.append(self.advance())
                 else:
-                    result.append('\\')
+                    result.append("\\")
             else:
                 result.append(self.advance())
 
-        return ''.join(result)
+        return "".join(result)
 
     def read_number(self) -> str:
         """Read a number (integer or float)."""
         result = []
 
         # Handle negative numbers
-        if self.current_char() == '-':
+        if self.current_char() == "-":
             result.append(self.advance())
 
         # Read digits
         result.append(self.read_while(lambda c: c.isdigit()))
 
         # Read decimal part
-        if self.current_char() == '.' and self.peek() and self.peek().isdigit():
+        if self.current_char() == "." and self.peek() and self.peek().isdigit():
             result.append(self.advance())  # .
             result.append(self.read_while(lambda c: c.isdigit()))
 
-        return ''.join(result)
+        return "".join(result)
 
     def read_identifier(self) -> str:
         """Read an identifier or keyword."""
-        return self.read_while(lambda c: c.isalnum() or c == '_')
+        return self.read_while(lambda c: c.isalnum() or c == "_")
 
     def read_attribute_name(self) -> str:
         """Read an attribute name (allows hyphens, colons for HTML5/framework attributes)."""
         # First character must be letter, underscore, or @ (for framework directives)
-        if not self.current_char() or not (self.current_char().isalpha() or self.current_char() in ('_', '@', ':')):
+        if not self.current_char() or not (
+            self.current_char().isalpha() or self.current_char() in ("_", "@", ":")
+        ):
             return ""
 
         # Allow letters, digits, hyphens, colons, underscores, @
         # Supports: data-*, aria-*, hx-*, x-on:click, @click, :bind, etc.
-        return self.read_while(lambda c: c.isalnum() or c in ('_', '-', ':', '@', '.'))
+        return self.read_while(lambda c: c.isalnum() or c in ("_", "-", ":", "@", "."))
 
     def _attribute_name_has_template(self) -> bool:
         """
@@ -290,8 +293,16 @@ class Lexer:
         saved_column = self.column
 
         try:
-            while self.current_char() and self.current_char() not in ('=', '>', ' ', '\t', '\n', '\r', '/'):
-                if self.current_char() == '{' and self.peek() in ('{', '%'):
+            while self.current_char() and self.current_char() not in (
+                "=",
+                ">",
+                " ",
+                "\t",
+                "\n",
+                "\r",
+                "/",
+            ):
+                if self.current_char() == "{" and self.peek() in ("{", "%"):
                     return True
                 self.advance()
             return False
@@ -309,28 +320,39 @@ class Lexer:
         """
         parts = []
 
-        while self.current_char() and self.current_char() not in ('=', '>', ' ', '\t', '\n', '\r', '/'):
-            if self.current_char() == '{' and self.peek() == '{':
+        while self.current_char() and self.current_char() not in (
+            "=",
+            ">",
+            " ",
+            "\t",
+            "\n",
+            "\r",
+            "/",
+        ):
+            if self.current_char() == "{" and self.peek() == "{":
                 # Template variable {{ ... }}
                 parts.append(self._collect_template_variable_in_attr_name())
-            elif self.current_char() == '{' and self.peek() == '%':
+            elif self.current_char() == "{" and self.peek() == "%":
                 # Template tag {% ... %}
                 parts.append(self._collect_template_tag_in_attr_name())
             else:
                 # Static part - read until next template or end
                 static_part = []
-                while (self.current_char() and
-                       self.current_char() not in ('=', '>', ' ', '\t', '\n', '\r', '/') and
-                       self.current_char() != '{'):
+                while (
+                    self.current_char()
+                    and self.current_char()
+                    not in ("=", ">", " ", "\t", "\n", "\r", "/")
+                    and self.current_char() != "{"
+                ):
                     static_part.append(self.current_char())
                     self.advance()
                 if static_part:
-                    parts.append(''.join(static_part))
+                    parts.append("".join(static_part))
 
         if not parts:
             raise SyntaxError(f"Empty dynamic attribute name at line {self.line}")
 
-        return ''.join(parts)
+        return "".join(parts)
 
     def _collect_template_variable_in_attr_name(self) -> str:
         """Collect a template variable {{ ... }} in attribute name. No quote restrictions."""
@@ -343,24 +365,26 @@ class Lexer:
             char = self.current_char()
 
             # Track nesting depth for inner {{}}
-            if char == '{' and self.peek() == '{':
+            if char == "{" and self.peek() == "{":
                 depth += 1
                 result.append(self.advance())
                 result.append(self.advance())
                 continue
 
             # Check for closing }}
-            if char == '}' and self.peek() == '}':
+            if char == "}" and self.peek() == "}":
                 result.append(self.advance())  # }
                 result.append(self.advance())  # }
                 if depth == 0:
-                    return ''.join(result)
+                    return "".join(result)
                 depth -= 1
                 continue
 
             result.append(self.advance())
 
-        raise SyntaxError(f"Unclosed template variable in attribute name at line {self.line}")
+        raise SyntaxError(
+            f"Unclosed template variable in attribute name at line {self.line}"
+        )
 
     def _collect_template_tag_in_attr_name(self) -> str:
         """Collect a template tag {% ... %} in attribute name. No quote restrictions."""
@@ -372,14 +396,16 @@ class Lexer:
             char = self.current_char()
 
             # Check for closing %}
-            if char == '%' and self.peek() == '}':
+            if char == "%" and self.peek() == "}":
                 result.append(self.advance())  # %
                 result.append(self.advance())  # }
-                return ''.join(result)
+                return "".join(result)
 
             result.append(self.advance())
 
-        raise SyntaxError(f"Unclosed template tag in attribute name at line {self.line}")
+        raise SyntaxError(
+            f"Unclosed template tag in attribute name at line {self.line}"
+        )
 
     def add_token(self, token_type: TokenType, value: str = ""):
         """Add a token to the token list."""
@@ -403,48 +429,48 @@ class Lexer:
         next_char = self.peek()
 
         # Template variable: {{
-        if char == '{' and next_char == '{':
+        if char == "{" and next_char == "{":
             self.advance()  # {
             self.advance()  # {
-            self.add_token(TokenType.TEMPLATE_VAR_START, '{{')
+            self.add_token(TokenType.TEMPLATE_VAR_START, "{{")
             self.tokenize_var_mode()
             return
 
         # Template tag: {%
-        if char == '{' and next_char == '%':
+        if char == "{" and next_char == "%":
             self.advance()  # {
             self.advance()  # %
-            self.add_token(TokenType.TEMPLATE_TAG_START, '{%')
+            self.add_token(TokenType.TEMPLATE_TAG_START, "{%")
             self.tokenize_tag_mode()
             return
 
         # Template comment: {#
-        if char == '{' and next_char == '#':
+        if char == "{" and next_char == "#":
             self.advance()  # {
             self.advance()  # #
-            self.add_token(TokenType.TEMPLATE_COMMENT_START, '{#')
+            self.add_token(TokenType.TEMPLATE_COMMENT_START, "{#")
             self.tokenize_comment_mode()
             return
 
         # HTML tag: <
-        if char == '<':
+        if char == "<":
             # Check for DOCTYPE, HTML comment, or CDATA
-            if self.peek() == '!':
+            if self.peek() == "!":
                 peek2 = self.peek(2) if self.pos + 2 < len(self.content) else None
                 peek3 = self.peek(3) if self.pos + 3 < len(self.content) else None
 
                 # HTML comment: <!--
-                if peek2 == '-' and peek3 == '-':
+                if peek2 == "-" and peek3 == "-":
                     self.tokenize_html_comment()
                     return
 
                 # DOCTYPE: <!DOCTYPE
-                if self.content[self.pos:self.pos+9].upper() == '<!DOCTYPE':
+                if self.content[self.pos : self.pos + 9].upper() == "<!DOCTYPE":
                     self.tokenize_doctype()
                     return
 
                 # CDATA: <![CDATA[
-                if self.content[self.pos:self.pos+9] == '<![CDATA[':
+                if self.content[self.pos : self.pos + 9] == "<![CDATA[":
                     self.tokenize_cdata()
                     return
 
@@ -460,15 +486,17 @@ class Lexer:
 
             # Check for start of template or HTML syntax
             next_char = self.peek()
-            if char == '<':
+            if char == "<":
                 break
-            if char == '{' and next_char in ('{', '%', '#'):
+            if char == "{" and next_char in ("{", "%", "#"):
                 break
 
             text.append(self.advance())
 
         if text:
-            self.tokens.append(Token(TokenType.TEXT, ''.join(text), start_line, start_col))
+            self.tokens.append(
+                Token(TokenType.TEXT, "".join(text), start_line, start_col)
+            )
 
     def tokenize_html_tag(self):
         """Tokenize an HTML tag."""
@@ -478,7 +506,7 @@ class Lexer:
         self.advance()  # <
 
         # Check for closing tag
-        is_closing = self.current_char() == '/'
+        is_closing = self.current_char() == "/"
         if is_closing:
             self.advance()  # /
 
@@ -500,14 +528,14 @@ class Lexer:
                 raise SyntaxError(f"Unterminated HTML tag at line {self.line}")
 
             # Self-closing: />
-            if char == '/' and self.peek() == '>':
+            if char == "/" and self.peek() == ">":
                 is_self_closing = True
                 self.advance()  # /
                 self.advance()  # >
                 break
 
             # End of tag: >
-            if char == '>':
+            if char == ">":
                 self.advance()
                 break
 
@@ -516,18 +544,18 @@ class Lexer:
             if self._attribute_name_has_template():
                 # Dynamic attribute name - collect the entire name with mixed parts
                 attr_name = self.tokenize_dynamic_attribute_name()
-                attributes.append(('name_dynamic', attr_name))
+                attributes.append(("name_dynamic", attr_name))
             else:
                 # Static attribute name
                 attr_name = self.read_attribute_name()
                 if not attr_name:
                     raise SyntaxError(f"Expected attribute name at line {self.line}")
-                attributes.append(('name', attr_name))
+                attributes.append(("name", attr_name))
 
             self.skip_whitespace()
 
             # Check for = (attribute value)
-            if self.current_char() == '=':
+            if self.current_char() == "=":
                 self.advance()  # =
                 self.skip_whitespace()
 
@@ -536,33 +564,39 @@ class Lexer:
                     quote = self.current_char()
                     # Tokenize attribute value (may contain templates)
                     attr_value = self.tokenize_attribute_value(quote)
-                    attributes.append(('value', attr_value))
+                    attributes.append(("value", attr_value))
                 else:
                     # Unquoted attribute value
-                    attr_value = self.read_while(lambda c: c not in ' \t\n\r>/')
-                    attributes.append(('value', attr_value))
+                    attr_value = self.read_while(lambda c: c not in " \t\n\r>/")
+                    attributes.append(("value", attr_value))
 
         # Create appropriate token
         if is_closing:
-            self.tokens.append(Token(TokenType.HTML_CLOSE_TAG, tag_name, start_line, start_col))
+            self.tokens.append(
+                Token(TokenType.HTML_CLOSE_TAG, tag_name, start_line, start_col)
+            )
         elif is_self_closing:
-            self.tokens.append(Token(TokenType.HTML_SELF_CLOSE, tag_name, start_line, start_col))
+            self.tokens.append(
+                Token(TokenType.HTML_SELF_CLOSE, tag_name, start_line, start_col)
+            )
             for attr_type, attr_val in attributes:
                 # Determine token type based on attribute type
-                if attr_type == 'name':
+                if attr_type == "name":
                     token_type = TokenType.ATTR_NAME
-                elif attr_type == 'name_dynamic':
+                elif attr_type == "name_dynamic":
                     token_type = TokenType.ATTR_NAME_DYNAMIC
                 else:  # 'value'
                     token_type = TokenType.ATTR_VALUE
                 self.tokens.append(Token(token_type, attr_val, start_line, start_col))
         else:
-            self.tokens.append(Token(TokenType.HTML_OPEN_TAG, tag_name, start_line, start_col))
+            self.tokens.append(
+                Token(TokenType.HTML_OPEN_TAG, tag_name, start_line, start_col)
+            )
             for attr_type, attr_val in attributes:
                 # Determine token type based on attribute type
-                if attr_type == 'name':
+                if attr_type == "name":
                     token_type = TokenType.ATTR_NAME
-                elif attr_type == 'name_dynamic':
+                elif attr_type == "name_dynamic":
                     token_type = TokenType.ATTR_NAME_DYNAMIC
                 else:  # 'value'
                     token_type = TokenType.ATTR_VALUE
@@ -596,10 +630,10 @@ class Lexer:
             if char == opening_quote:
                 # Return the complete value
                 self.advance()  # Skip closing quote
-                return ''.join(value_buffer)
+                return "".join(value_buffer)
 
             # Check for template variable: {{
-            if char == '{' and self.peek() == '{':
+            if char == "{" and self.peek() == "{":
                 value_buffer.append(char)
                 self.advance()  # {
                 value_buffer.append(self.current_char())
@@ -610,7 +644,7 @@ class Lexer:
                 continue
 
             # Check for template tag: {%
-            if char == '{' and self.peek() == '%':
+            if char == "{" and self.peek() == "%":
                 value_buffer.append(char)
                 self.advance()  # {
                 value_buffer.append(self.current_char())
@@ -629,7 +663,9 @@ class Lexer:
             char = self.current_char()
 
             if char is None:
-                raise SyntaxError(f"Unterminated variable in attribute at line {self.line}")
+                raise SyntaxError(
+                    f"Unterminated variable in attribute at line {self.line}"
+                )
 
             # Check for forbidden quote
             if char == forbidden_quote:
@@ -639,7 +675,7 @@ class Lexer:
                 )
 
             # Check for closing }}
-            if char == '}' and self.peek() == '}':
+            if char == "}" and self.peek() == "}":
                 buffer.append(self.advance())  # }
                 buffer.append(self.advance())  # }
                 return
@@ -652,7 +688,9 @@ class Lexer:
             char = self.current_char()
 
             if char is None:
-                raise SyntaxError(f"Unterminated template tag in attribute at line {self.line}")
+                raise SyntaxError(
+                    f"Unterminated template tag in attribute at line {self.line}"
+                )
 
             # Check for forbidden quote
             if char == forbidden_quote:
@@ -662,7 +700,7 @@ class Lexer:
                 )
 
             # Check for closing %}
-            if char == '%' and self.peek() == '}':
+            if char == "%" and self.peek() == "}":
                 buffer.append(self.advance())  # %
                 buffer.append(self.advance())  # }
                 return
@@ -676,15 +714,17 @@ class Lexer:
 
         # Read until >
         doctype = []
-        while self.current_char() and self.current_char() != '>':
+        while self.current_char() and self.current_char() != ">":
             doctype.append(self.advance())
 
-        if self.current_char() == '>':
+        if self.current_char() == ">":
             doctype.append(self.advance())  # >
         else:
             raise SyntaxError(f"Unterminated DOCTYPE at line {self.line}")
 
-        self.tokens.append(Token(TokenType.DOCTYPE, ''.join(doctype), start_line, start_col))
+        self.tokens.append(
+            Token(TokenType.DOCTYPE, "".join(doctype), start_line, start_col)
+        )
 
     def tokenize_html_comment(self):
         """Tokenize an HTML comment."""
@@ -704,7 +744,7 @@ class Lexer:
                 raise SyntaxError(f"Unterminated HTML comment at line {self.line}")
 
             # Check for -->
-            if char == '-' and self.peek() == '-' and self.peek(2) == '>':
+            if char == "-" and self.peek() == "-" and self.peek(2) == ">":
                 self.advance()  # -
                 self.advance()  # -
                 self.advance()  # >
@@ -712,7 +752,9 @@ class Lexer:
 
             comment.append(self.advance())
 
-        self.tokens.append(Token(TokenType.HTML_COMMENT, ''.join(comment), start_line, start_col))
+        self.tokens.append(
+            Token(TokenType.HTML_COMMENT, "".join(comment), start_line, start_col)
+        )
 
     def tokenize_cdata(self):
         """Tokenize a CDATA section."""
@@ -730,7 +772,7 @@ class Lexer:
                 raise SyntaxError(f"Unterminated CDATA section at line {self.line}")
 
             # Check for ]]>
-            if char == ']' and self.peek() == ']' and self.peek(2) == '>':
+            if char == "]" and self.peek() == "]" and self.peek(2) == ">":
                 self.advance()  # ]
                 self.advance()  # ]
                 self.advance()  # >
@@ -738,8 +780,9 @@ class Lexer:
 
             cdata.append(self.advance())
 
-        self.tokens.append(Token(TokenType.CDATA, ''.join(cdata), start_line, start_col))
-
+        self.tokens.append(
+            Token(TokenType.CDATA, "".join(cdata), start_line, start_col)
+        )
 
     def tokenize_var_mode(self):
         """Tokenize inside {{ ... }}."""
@@ -751,10 +794,10 @@ class Lexer:
                 raise SyntaxError(f"Unterminated variable at line {self.line}")
 
             # Check for closing }}
-            if char == '}' and self.peek() == '}':
+            if char == "}" and self.peek() == "}":
                 self.advance()  # }
                 self.advance()  # }
-                self.add_token(TokenType.TEMPLATE_VAR_END, '}}')
+                self.add_token(TokenType.TEMPLATE_VAR_END, "}}")
                 return
 
             self.tokenize_expression()
@@ -770,38 +813,46 @@ class Lexer:
         self.skip_whitespace()
 
         # Peek at first identifier to see if it's a raw content tag
-        if self.current_char() and (self.current_char().isalpha() or self.current_char() == '_'):
+        if self.current_char() and (
+            self.current_char().isalpha() or self.current_char() == "_"
+        ):
             tag_name = self.read_identifier()
 
             # Known tags that contain raw content (not parsed as expressions)
-            RAW_CONTENT_TAGS = {'trans', 'blocktrans'}
+            RAW_CONTENT_TAGS = {"trans", "blocktrans"}
 
             if tag_name in RAW_CONTENT_TAGS:
                 # Emit the tag name as an identifier
-                self.tokens.append(Token(TokenType.IDENTIFIER, tag_name, saved_line, saved_column))
+                self.tokens.append(
+                    Token(TokenType.IDENTIFIER, tag_name, saved_line, saved_column)
+                )
 
                 # Collect everything else as raw text until %}
                 content = []
                 while True:
                     char = self.current_char()
                     if char is None:
-                        raise SyntaxError(f"Unterminated template tag at line {self.line}")
+                        raise SyntaxError(
+                            f"Unterminated template tag at line {self.line}"
+                        )
 
                     # Check for closing %}
-                    if char == '%' and self.peek() == '}':
+                    if char == "%" and self.peek() == "}":
                         break
 
                     content.append(self.advance())
 
                 # Emit collected content as text if non-empty
-                raw_content = ''.join(content)
+                raw_content = "".join(content)
                 if raw_content:
-                    self.tokens.append(Token(TokenType.TEXT, raw_content, self.line, self.column))
+                    self.tokens.append(
+                        Token(TokenType.TEXT, raw_content, self.line, self.column)
+                    )
 
                 # Emit closing %}
                 self.advance()  # %
                 self.advance()  # }
-                self.add_token(TokenType.TEMPLATE_TAG_END, '%}')
+                self.add_token(TokenType.TEMPLATE_TAG_END, "%}")
                 return
 
         # Not a raw content tag - restore position and do normal tokenization
@@ -818,10 +869,10 @@ class Lexer:
                 raise SyntaxError(f"Unterminated template tag at line {self.line}")
 
             # Check for closing %}
-            if char == '%' and self.peek() == '}':
+            if char == "%" and self.peek() == "}":
                 self.advance()  # %
                 self.advance()  # }
-                self.add_token(TokenType.TEMPLATE_TAG_END, '%}')
+                self.add_token(TokenType.TEMPLATE_TAG_END, "%}")
                 return
 
             self.tokenize_expression()
@@ -836,11 +887,13 @@ class Lexer:
                 raise SyntaxError(f"Unterminated comment at line {self.line}")
 
             # Check for closing #}
-            if char == '#' and self.peek() == '}':
+            if char == "#" and self.peek() == "}":
                 self.advance()  # #
                 self.advance()  # }
-                self.tokens.append(Token(TokenType.TEXT, ''.join(text), self.line, self.column))
-                self.add_token(TokenType.TEMPLATE_COMMENT_END, '#}')
+                self.tokens.append(
+                    Token(TokenType.TEXT, "".join(text), self.line, self.column)
+                )
+                self.add_token(TokenType.TEMPLATE_COMMENT_END, "#}")
                 return
 
             text.append(self.advance())
@@ -859,73 +912,75 @@ class Lexer:
             return
 
         # Number
-        if char.isdigit() or (char == '-' and self.peek() and self.peek().isdigit()):
+        if char.isdigit() or (char == "-" and self.peek() and self.peek().isdigit()):
             value = self.read_number()
             self.tokens.append(Token(TokenType.NUMBER, value, start_line, start_col))
             return
 
         # Identifier or keyword
-        if char.isalpha() or char == '_':
+        if char.isalpha() or char == "_":
             value = self.read_identifier()
             token_type = self.KEYWORDS.get(value, TokenType.IDENTIFIER)
             self.tokens.append(Token(token_type, value, start_line, start_col))
             return
 
         # Operators and symbols
-        if char == '|':
+        if char == "|":
             self.advance()
-            self.add_token(TokenType.PIPE, '|')
-        elif char == ':':
+            self.add_token(TokenType.PIPE, "|")
+        elif char == ":":
             self.advance()
-            self.add_token(TokenType.COLON, ':')
-        elif char == ',':
+            self.add_token(TokenType.COLON, ":")
+        elif char == ",":
             self.advance()
-            self.add_token(TokenType.COMMA, ',')
-        elif char == '.':
+            self.add_token(TokenType.COMMA, ",")
+        elif char == ".":
             # Save position before advancing for accurate column tracking
             dot_col = self.column
             dot_line = self.line
             self.advance()
-            self.tokens.append(Token(TokenType.DOT, '.', dot_line, dot_col))
-        elif char == '(':
+            self.tokens.append(Token(TokenType.DOT, ".", dot_line, dot_col))
+        elif char == "(":
             self.advance()
-            self.add_token(TokenType.LPAREN, '(')
-        elif char == ')':
+            self.add_token(TokenType.LPAREN, "(")
+        elif char == ")":
             self.advance()
-            self.add_token(TokenType.RPAREN, ')')
-        elif char == '[':
+            self.add_token(TokenType.RPAREN, ")")
+        elif char == "[":
             self.advance()
-            self.add_token(TokenType.LBRACKET, '[')
-        elif char == ']':
+            self.add_token(TokenType.LBRACKET, "[")
+        elif char == "]":
             self.advance()
-            self.add_token(TokenType.RBRACKET, ']')
-        elif char == '=' and self.peek() == '=':
-            self.advance()
-            self.advance()
-            self.add_token(TokenType.EQ, '==')
-        elif char == '!' and self.peek() == '=':
+            self.add_token(TokenType.RBRACKET, "]")
+        elif char == "=" and self.peek() == "=":
             self.advance()
             self.advance()
-            self.add_token(TokenType.NE, '!=')
-        elif char == '<' and self.peek() == '=':
+            self.add_token(TokenType.EQ, "==")
+        elif char == "!" and self.peek() == "=":
             self.advance()
             self.advance()
-            self.add_token(TokenType.LE, '<=')
-        elif char == '>' and self.peek() == '=':
+            self.add_token(TokenType.NE, "!=")
+        elif char == "<" and self.peek() == "=":
             self.advance()
             self.advance()
-            self.add_token(TokenType.GE, '>=')
-        elif char == '<':
+            self.add_token(TokenType.LE, "<=")
+        elif char == ">" and self.peek() == "=":
             self.advance()
-            self.add_token(TokenType.LT, '<')
-        elif char == '>':
             self.advance()
-            self.add_token(TokenType.GT, '>')
-        elif char == '=':
+            self.add_token(TokenType.GE, ">=")
+        elif char == "<":
             self.advance()
-            self.add_token(TokenType.EQUALS, '=')
+            self.add_token(TokenType.LT, "<")
+        elif char == ">":
+            self.advance()
+            self.add_token(TokenType.GT, ">")
+        elif char == "=":
+            self.advance()
+            self.add_token(TokenType.EQUALS, "=")
         else:
-            raise SyntaxError(f"Unexpected character '{char}' at line {self.line}, column {self.column}")
+            raise SyntaxError(
+                f"Unexpected character '{char}' at line {self.line}, column {self.column}"
+            )
 
 
 def tokenize(content: str) -> List[Token]:
@@ -934,7 +989,7 @@ def tokenize(content: str) -> List[Token]:
     return lexer.tokenize()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test the lexer
     template = """
     <div class="container">

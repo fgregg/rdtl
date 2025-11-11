@@ -7,33 +7,35 @@ This module uses Hypothesis to generate random RDTL templates and test:
 3. Formatter idempotence: format(format(x)) == format(x)
 """
 
-import pytest
-from hypothesis import given, strategies as st, settings, example
 from pathlib import Path
 
-from rdtl.parser import parse
-from rdtl.formatter import format_template, FormatOptions
-from rdtl.validator import validate_template
+import pytest
+from hypothesis import example, given, settings
+from hypothesis import strategies as st
 
+from rdtl.formatter import format_template
+from rdtl.parser import parse
+from rdtl.validator import validate_template
 
 # ============================================================================
 # Test Strategies
 # ============================================================================
 
 # Basic HTML tag names
-html_tags = st.sampled_from([
-    'div', 'p', 'span', 'a', 'ul', 'li', 'h1', 'h2', 'button', 'form'
-])
+html_tags = st.sampled_from(
+    ["div", "p", "span", "a", "ul", "li", "h1", "h2", "button", "form"]
+)
 
 # Simple identifiers for variables
-identifiers = st.from_regex(r'[a-z][a-z0-9_]{0,10}', fullmatch=True)
+identifiers = st.from_regex(r"[a-z][a-z0-9_]{0,10}", fullmatch=True)
 
 # Simple string values
 simple_strings = st.text(
-    alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'), max_codepoint=127),
+    alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), max_codepoint=127),
     min_size=0,
-    max_size=20
+    max_size=20,
 )
+
 
 # Template variable strategy
 @st.composite
@@ -52,16 +54,14 @@ def template_variable(draw):
 def simple_html_element(draw):
     """Generate a simple HTML element like <div>content</div>"""
     tag = draw(html_tags)
-    content = draw(st.one_of(
-        simple_strings,
-        template_variable()
-    ))
+    content = draw(st.one_of(simple_strings, template_variable()))
     return f"<{tag}>{content}</{tag}>"
 
 
 # ============================================================================
 # Property Tests
 # ============================================================================
+
 
 class TestParserProperties:
     """Property-based tests for the parser."""
@@ -109,9 +109,10 @@ class TestFormatterProperties:
             # Second format (should be identical)
             formatted2 = format_template(formatted1)
 
-            assert formatted1 == formatted2, \
-                f"Formatter not idempotent:\nFirst:  {formatted1}\nSecond: {formatted2}"
-        except Exception as e:
+            assert (
+                formatted1 == formatted2
+            ), f"Formatter not idempotent:\nFirst:  {formatted1}\nSecond: {formatted2}"
+        except Exception:
             # If first format fails, that's OK - we're only testing idempotence
             # of successfully formatted templates
             pass
@@ -138,9 +139,10 @@ class TestFormatterProperties:
 
             # ASTs should be structurally equivalent
             # (We compare string representations as a proxy for structural equality)
-            assert str(ast1) == str(ast2), \
-                f"Round-trip inconsistency:\nOriginal AST: {ast1}\nFormatted AST: {ast2}"
-        except Exception as e:
+            assert str(ast1) == str(
+                ast2
+            ), f"Round-trip inconsistency:\nOriginal AST: {ast1}\nFormatted AST: {ast2}"
+        except Exception:
             # If parsing or formatting fails, that's OK - we're only testing
             # round-trip consistency of valid templates
             pass
@@ -174,6 +176,7 @@ class TestValidatorProperties:
 
 try:
     from lark import Lark
+
     LARK_AVAILABLE = True
 except ImportError:
     LARK_AVAILABLE = False
@@ -186,14 +189,14 @@ class TestLarkComparison:
     @pytest.fixture(scope="class")
     def lark_parser(self):
         """Load Lark grammar."""
-        grammar_file = Path(__file__).parent.parent / 'src' / 'rdtl' / 'rdtl_lark.lark'
+        grammar_file = Path(__file__).parent.parent / "src" / "rdtl" / "rdtl_lark.lark"
         if not grammar_file.exists():
             pytest.skip(f"Lark grammar not found: {grammar_file}")
 
         with open(grammar_file) as f:
             grammar = f.read()
 
-        return Lark(grammar, start='document', parser='lalr')
+        return Lark(grammar, start="document", parser="lalr")
 
     @given(simple_html_element())
     @example("<div>Hello</div>")
@@ -232,12 +235,16 @@ class TestLarkComparison:
 
 try:
     from hypothesis.extra.lark import from_lark
+
     LARK_GENERATION_AVAILABLE = True
 except ImportError:
     LARK_GENERATION_AVAILABLE = False
 
 
-@pytest.mark.skipif(not LARK_GENERATION_AVAILABLE, reason="hypothesis.extra.lark not available")
+@pytest.mark.skipif(
+    not LARK_GENERATION_AVAILABLE, reason="hypothesis.extra.lark not available"
+)
+@pytest.mark.slow
 class TestGrammarGeneration:
     """Generate test cases directly from the RDTL grammar using Hypothesis."""
 
@@ -246,28 +253,33 @@ class TestGrammarGeneration:
         """Create Hypothesis strategy from RDTL grammar."""
         from lark import Lark
 
-        grammar_file = Path(__file__).parent.parent / 'src' / 'rdtl' / 'rdtl_lark.lark'
+        grammar_file = Path(__file__).parent.parent / "src" / "rdtl" / "rdtl_lark.lark"
         if not grammar_file.exists():
             pytest.skip(f"Grammar file not found: {grammar_file}")
 
         with open(grammar_file) as f:
             grammar_text = f.read()
 
-        grammar = Lark(grammar_text, start='document', parser='lalr')
+        grammar = Lark(grammar_text, start="document", parser="lalr")
 
         # Use ASCII printable characters for readable output
         # Provide explicit strategy for WS (whitespace) terminal
         return from_lark(
             grammar,
-            start='document',
+            start="document",
             alphabet=st.characters(min_codepoint=32, max_codepoint=126),
-            explicit={'WS': st.just(' ')}  # Use single space for whitespace
+            explicit={"WS": st.just(" ")},  # Use single space for whitespace
         )
 
     @given(st.data())
-    @settings(max_examples=5, deadline=None)
+    @settings(max_examples=10, deadline=None)
     def test_grammar_generated_templates_parse(self, data):
-        """Test that templates generated from grammar always parse."""
+        """Test that templates generated from grammar can be parsed.
+
+        Since the grammar enforces semantic constraints (e.g., load must have
+        library names, extends must have a path), all generated templates
+        should be valid and parseable.
+        """
         template_strategy = self.get_template_strategy()
         template = data.draw(template_strategy)
 
@@ -275,12 +287,10 @@ class TestGrammarGeneration:
         print(f"Generated template:\n{template}")
         print(f"{'='*60}")
 
-        try:
-            ast = parse(template)
-            assert ast is not None
-            print("✓ Parsed successfully")
-        except Exception as e:
-            pytest.fail(f"Grammar-generated template failed to parse:\n{template}\n\nError: {e}")
+        # Parse and verify
+        ast = parse(template)
+        assert ast is not None
+        print("✓ Parsed successfully")
 
     @given(st.data())
     @settings(max_examples=10, deadline=None)
@@ -289,24 +299,21 @@ class TestGrammarGeneration:
         template_strategy = self.get_template_strategy()
         template = data.draw(template_strategy)
 
-        try:
-            # Parse original
-            ast1 = parse(template)
+        # Parse original
+        ast1 = parse(template)
 
-            # Format
-            formatted = format_template(template)
+        # Format
+        formatted = format_template(template)
 
-            # Parse formatted
-            ast2 = parse(formatted)
+        # Parse formatted
+        ast2 = parse(formatted)
 
-            # Should be structurally equivalent
-            assert str(ast1) == str(ast2), \
-                f"Roundtrip failed:\nOriginal: {template}\nFormatted: {formatted}"
+        # Should be structurally equivalent
+        assert str(ast1) == str(
+            ast2
+        ), f"Roundtrip failed:\nOriginal: {template}\nFormatted: {formatted}"
 
-            print(f"✓ Roundtrip successful for: {template[:50]}...")
-        except Exception as e:
-            # Some grammar-generated templates might be edge cases
-            print(f"⚠ Roundtrip failed (acceptable for grammar exploration): {e}")
+        print(f"✓ Roundtrip successful for: {template[:50]}...")
 
     @given(st.data())
     @settings(max_examples=10, deadline=None)
@@ -315,26 +322,24 @@ class TestGrammarGeneration:
         template_strategy = self.get_template_strategy()
         template = data.draw(template_strategy)
 
-        try:
-            # Format once
-            formatted1 = format_template(template)
+        # Format once
+        formatted1 = format_template(template)
 
-            # Format again
-            formatted2 = format_template(formatted1)
+        # Format again
+        formatted2 = format_template(formatted1)
 
-            # Should be identical
-            assert formatted1 == formatted2, \
-                f"Formatter not idempotent:\nFirst:  {formatted1}\nSecond: {formatted2}"
+        # Should be identical
+        assert (
+            formatted1 == formatted2
+        ), f"Formatter not idempotent:\nFirst:  {formatted1}\nSecond: {formatted2}"
 
-            print(f"✓ Idempotent for: {template[:50]}...")
-        except Exception as e:
-            # Some templates might fail formatting (that's OK, we're exploring)
-            print(f"⚠ Formatting failed (acceptable): {e}")
+        print(f"✓ Idempotent for: {template[:50]}...")
 
 
 # ============================================================================
 # Example-Based Tests (Using Hypothesis @example decorator)
 # ============================================================================
+
 
 class TestKnownCases:
     """Test specific known cases using Hypothesis examples."""
@@ -368,6 +373,6 @@ class TestKnownCases:
         assert ast is not None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run tests with pytest
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, "-v"])
