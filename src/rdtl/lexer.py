@@ -210,6 +210,12 @@ class Lexer:
 
         return char
 
+    def advance_checked(self) -> str:
+        """Consume and return current character (must not be None)."""
+        char = self.advance()
+        assert char is not None, "Attempted to advance past end of input"
+        return char
+
     def skip_whitespace(self):
         """Skip whitespace characters."""
         while self.current_char() and self.current_char() in " \t\n\r":
@@ -217,14 +223,14 @@ class Lexer:
 
     def read_while(self, predicate) -> str:
         """Read characters while predicate is true."""
-        result = []
+        result: list[str] = []
         while self.current_char() and predicate(self.current_char()):
-            result.append(self.advance())
+            result.append(self.advance_checked())
         return "".join(result)
 
     def read_string(self, quote: str) -> str:
         """Read a quoted string."""
-        result = []
+        result: list[str] = []
         self.advance()  # Skip opening quote
 
         while True:
@@ -240,28 +246,29 @@ class Lexer:
                 self.advance()
                 next_char = self.current_char()
                 if next_char in ('"', "'", "\\"):
-                    result.append(self.advance())
+                    result.append(self.advance_checked())
                 else:
                     result.append("\\")
             else:
-                result.append(self.advance())
+                result.append(self.advance_checked())
 
         return "".join(result)
 
     def read_number(self) -> str:
         """Read a number (integer or float)."""
-        result = []
+        result: list[str] = []
 
         # Handle negative numbers
         if self.current_char() == "-":
-            result.append(self.advance())
+            result.append(self.advance_checked())
 
         # Read digits
         result.append(self.read_while(lambda c: c.isdigit()))
 
         # Read decimal part
-        if self.current_char() == "." and self.peek() and self.peek().isdigit():
-            result.append(self.advance())  # .
+        peek_char = self.peek()
+        if self.current_char() == "." and peek_char is not None and peek_char.isdigit():
+            result.append(self.advance_checked())  # .
             result.append(self.read_while(lambda c: c.isdigit()))
 
         return "".join(result)
@@ -273,9 +280,8 @@ class Lexer:
     def read_attribute_name(self) -> str:
         """Read an attribute name (allows hyphens, colons for HTML5/framework attributes)."""
         # First character must be letter, underscore, or @ (for framework directives)
-        if not self.current_char() or not (
-            self.current_char().isalpha() or self.current_char() in ("_", "@", ":")
-        ):
+        current = self.current_char()
+        if not current or not (current.isalpha() or current in ("_", "@", ":")):
             return ""
 
         # Allow letters, digits, hyphens, colons, underscores, @
@@ -336,15 +342,14 @@ class Lexer:
                 parts.append(self._collect_template_tag_in_attr_name())
             else:
                 # Static part - read until next template or end
-                static_part = []
+                static_part: list[str] = []
                 while (
                     self.current_char()
                     and self.current_char()
                     not in ("=", ">", " ", "\t", "\n", "\r", "/")
                     and self.current_char() != "{"
                 ):
-                    static_part.append(self.current_char())
-                    self.advance()
+                    static_part.append(self.advance_checked())
                 if static_part:
                     parts.append("".join(static_part))
 
@@ -355,9 +360,9 @@ class Lexer:
 
     def _collect_template_variable_in_attr_name(self) -> str:
         """Collect a template variable {{ ... }} in attribute name. No quote restrictions."""
-        result = []
-        result.append(self.advance())  # {
-        result.append(self.advance())  # {
+        result: list[str] = []
+        result.append(self.advance_checked())  # {
+        result.append(self.advance_checked())  # {
 
         depth = 0
         while self.current_char():
@@ -366,20 +371,20 @@ class Lexer:
             # Track nesting depth for inner {{}}
             if char == "{" and self.peek() == "{":
                 depth += 1
-                result.append(self.advance())
-                result.append(self.advance())
+                result.append(self.advance_checked())
+                result.append(self.advance_checked())
                 continue
 
             # Check for closing }}
             if char == "}" and self.peek() == "}":
-                result.append(self.advance())  # }
-                result.append(self.advance())  # }
+                result.append(self.advance_checked())  # }
+                result.append(self.advance_checked())  # }
                 if depth == 0:
                     return "".join(result)
                 depth -= 1
                 continue
 
-            result.append(self.advance())
+            result.append(self.advance_checked())
 
         raise SyntaxError(
             f"Unclosed template variable in attribute name at line {self.line}"
@@ -387,20 +392,20 @@ class Lexer:
 
     def _collect_template_tag_in_attr_name(self) -> str:
         """Collect a template tag {% ... %} in attribute name. No quote restrictions."""
-        result = []
-        result.append(self.advance())  # {
-        result.append(self.advance())  # %
+        result: list[str] = []
+        result.append(self.advance_checked())  # {
+        result.append(self.advance_checked())  # %
 
         while self.current_char():
             char = self.current_char()
 
             # Check for closing %}
             if char == "%" and self.peek() == "}":
-                result.append(self.advance())  # %
-                result.append(self.advance())  # }
+                result.append(self.advance_checked())  # %
+                result.append(self.advance_checked())  # }
                 return "".join(result)
 
-            result.append(self.advance())
+            result.append(self.advance_checked())
 
         raise SyntaxError(
             f"Unclosed template tag in attribute name at line {self.line}"
@@ -616,7 +621,7 @@ class Lexer:
         # Store which quote type is forbidden inside templates
         forbidden_quote = opening_quote
 
-        value_buffer = []
+        value_buffer: list[str] = []
 
         while True:
             char = self.current_char()
@@ -634,8 +639,7 @@ class Lexer:
             if char == "{" and self.peek() == "{":
                 value_buffer.append(char)
                 self.advance()  # {
-                value_buffer.append(self.current_char())
-                self.advance()  # {
+                value_buffer.append(self.advance_checked())  # {
 
                 # Validate and collect the variable content
                 self._collect_template_var_in_attr(value_buffer, forbidden_quote)
@@ -645,15 +649,14 @@ class Lexer:
             if char == "{" and self.peek() == "%":
                 value_buffer.append(char)
                 self.advance()  # {
-                value_buffer.append(self.current_char())
-                self.advance()  # %
+                value_buffer.append(self.advance_checked())  # %
 
                 # Validate and collect the tag content
                 self._collect_template_tag_in_attr(value_buffer, forbidden_quote)
                 continue
 
             # Regular character
-            value_buffer.append(self.advance())
+            value_buffer.append(self.advance_checked())
 
     def _collect_template_var_in_attr(self, buffer: list, forbidden_quote: str):
         """Collect template variable content in attribute, checking quote rules."""

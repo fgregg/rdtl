@@ -57,7 +57,7 @@ def get_template_strategy():
     )
 
 
-def compare_parsers(template_str: str) -> dict:
+def compare_parsers(template_str: str) -> dict[str, bool | str | None]:
     """
     Compare how Django and RDTL handle a template.
 
@@ -67,7 +67,7 @@ def compare_parsers(template_str: str) -> dict:
     - rdtl_accepts: bool
     - rdtl_error: str or None
     """
-    result = {
+    result: dict[str, bool | str | None] = {
         "django_accepts": False,
         "django_error": None,
         "rdtl_accepts": False,

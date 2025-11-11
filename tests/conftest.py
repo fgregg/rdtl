@@ -98,7 +98,7 @@ def assert_validates_successfully(template: str, strict_html: bool = False):
     return is_valid
 
 
-def assert_formats_successfully(template: str, options: FormatOptions = None):
+def assert_formats_successfully(template: str, options: FormatOptions | None = None):
     """Assert that a template formats without errors."""
     formatted = format_template(template, options=options)
     assert formatted is not None

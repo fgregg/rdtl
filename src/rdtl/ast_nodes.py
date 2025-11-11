@@ -137,7 +137,7 @@ class TextNode(ASTNode):
 class Variable(ASTNode):
     """Template variable: {{ variable.name }}."""
 
-    expression: "Expression"
+    expression: "Expression | Literal"
     filters: list["Filter"] = field(default_factory=list)
 
     def __repr__(self) -> str:
@@ -186,7 +186,7 @@ class Filter(ASTNode):
 class FilteredExpression(ASTNode):
     """Expression with filters applied (e.g., field|length in conditions)."""
 
-    expression: "Expression"
+    expression: "Expression | Literal"
     filters: list["Filter"] = field(default_factory=list)
 
     def __repr__(self) -> str:
@@ -224,7 +224,7 @@ class ForBlock(ASTNode):
     loop_vars: list[str] = field(
         default_factory=list
     )  # Variable names (supports tuple unpacking)
-    iterable: Expression = None  # What we're iterating over
+    iterable: "Expression | Literal | None" = None  # What we're iterating over
     children: list[ASTNode] = field(default_factory=list)
     empty_children: list[ASTNode] | None = None
 
@@ -253,7 +253,7 @@ class BlockTag(ASTNode):
 class WithBlock(ASTNode):
     """With block: {% with var=value %}...{% endwith %}."""
 
-    assignments: list[tuple[str, Expression]] = field(default_factory=list)
+    assignments: list[tuple[str, "Expression | Literal"]] = field(default_factory=list)
     children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
@@ -270,8 +270,8 @@ class WithBlock(ASTNode):
 class IncludeTag(ASTNode):
     """Include tag: {% include "template.html" %}."""
 
-    template_name: str
-    context_vars: dict[str, Expression] = field(default_factory=dict)
+    template_name: str | "Expression | Literal"
+    context_vars: dict[str, "Expression | Literal"] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         return f"IncludeTag({self.template_name!r})"
@@ -374,7 +374,7 @@ class LoremTag(ASTNode):
 class RegroupTag(ASTNode):
     """Regroup tag: {% regroup list by attribute as var %}."""
 
-    list_expr: "Expression"
+    list_expr: "Expression | Literal"
     attribute: str
     var_name: str
 
@@ -459,7 +459,7 @@ class CommentBlock(ASTNode):
 class IfChangedBlock(ASTNode):
     """If changed block: {% ifchanged %}...{% endifchanged %}."""
 
-    watch_expressions: list["Expression"] = field(
+    watch_expressions: list["Expression | Literal"] = field(
         default_factory=list
     )  # Optional variables to watch
     children: list[ASTNode] = field(default_factory=list)
@@ -532,7 +532,7 @@ class Condition(ASTNode):
 class SimpleCondition(Condition):
     """Simple condition: just a variable or expression."""
 
-    expression: "Expression | Literal"
+    expression: "Expression | Literal | FilteredExpression"
     negated: bool = False
 
     def __repr__(self) -> str:
@@ -544,9 +544,9 @@ class SimpleCondition(Condition):
 class Comparison(Condition):
     """Comparison condition: x == y, a < b, etc."""
 
-    left: "Expression | Literal"
+    left: "Expression | Literal | FilteredExpression"
     operator: str  # ==, !=, <, >, <=, >=, in, not in
-    right: "Expression | Literal"
+    right: "Expression | Literal | FilteredExpression"
 
     def __repr__(self) -> str:
         return f"{self.left} {self.operator} {self.right}"

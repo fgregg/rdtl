@@ -51,7 +51,7 @@ class Formatter(ast_nodes.ASTVisitor):
 
     def __init__(self, options: FormatOptions | None = None):
         self.options = options or FormatOptions()
-        self.output = []
+        self.output: list[str] = []
         self.indent_level = 0
         self.needs_indent = True
         self.last_was_block = False

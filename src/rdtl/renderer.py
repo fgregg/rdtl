@@ -4,6 +4,7 @@ Template renderer for RDTL.
 Evaluates the AST and produces HTML output.
 """
 
+from collections.abc import Callable
 from typing import Any
 
 from rdtl import ast_nodes
@@ -51,10 +52,10 @@ class Renderer(ast_nodes.ASTVisitor):
 
     def __init__(self, context: dict[str, Any] | None = None):
         self.context = RenderContext(context)
-        self.output = []
+        self.output: list[str] = []
 
         # Built-in filters
-        self.filters = {
+        self.filters: dict[str, Callable[..., Any]] = {
             "upper": lambda x: str(x).upper(),
             "lower": lambda x: str(x).lower(),
             "title": lambda x: str(x).title(),
@@ -159,7 +160,10 @@ class Renderer(ast_nodes.ASTVisitor):
     def visit_ForBlock(self, node: ast_nodes.ForBlock):
         """Render a for loop."""
         # Evaluate the iterable
-        iterable = self._eval_expression(node.iterable)
+        if node.iterable is None:
+            iterable = []
+        else:
+            iterable = self._eval_expression(node.iterable)
 
         # Convert to list if needed
         if not hasattr(iterable, "__iter__"):
@@ -175,8 +179,18 @@ class Renderer(ast_nodes.ASTVisitor):
 
         # Render loop
         for item in items:
-            # Push new context with loop variable
-            self.context.push({node.loop_var: item})
+            # Push new context with loop variable(s)
+            # Support both single variable and tuple unpacking
+            if len(node.loop_vars) == 1:
+                self.context.push({node.loop_vars[0]: item})
+            else:
+                # Tuple unpacking: {% for key, value in items %}
+                if isinstance(item, (list, tuple)) and len(item) == len(node.loop_vars):
+                    ctx = dict(zip(node.loop_vars, item))
+                    self.context.push(ctx)
+                else:
+                    # If item doesn't match, just use the item for all variables
+                    self.context.push({var: item for var in node.loop_vars})
 
             # Render children
             for child in node.children:
@@ -237,10 +251,21 @@ class Renderer(ast_nodes.ASTVisitor):
     # Expression evaluation
     # ========================================================================
 
-    def _eval_expression(self, expr: ast_nodes.Expression | ast_nodes.Literal) -> Any:
+    def _eval_expression(
+        self,
+        expr: ast_nodes.Expression | ast_nodes.Literal | ast_nodes.FilteredExpression,
+    ) -> Any:
         """Evaluate an expression to a value."""
         if isinstance(expr, ast_nodes.Literal):
             return expr.value
+
+        if isinstance(expr, ast_nodes.FilteredExpression):
+            # Evaluate the base expression first
+            value = self._eval_expression(expr.expression)
+            # Apply filters
+            for filter_node in expr.filters:
+                value = self._apply_filter(value, filter_node)
+            return value
 
         if isinstance(expr, ast_nodes.Expression):
             # Get base variable
