@@ -2,12 +2,24 @@
 Recursive descent parser for RDTL.
 
 Converts token stream into an Abstract Syntax Tree (AST).
+
+The Parser has been refactored into specialized parsers for improved
+modularity and maintainability:
+- ExpressionParser: Handles variable expressions and filters
+- HtmlParser: Handles HTML elements and attributes
+- TemplateParser: Handles Django template tags and control flow
+
+The main Parser delegates to these specialized parsers while maintaining
+the overall parsing orchestration.
 """
 
 import re
 
 from rdtl import ast_nodes
+from rdtl.expression_parser import ExpressionParser
+from rdtl.html_parser import HtmlParser
 from rdtl.lexer import Lexer, Token, TokenType
+from rdtl.template_parser import TemplateParser
 
 
 class ParseError(Exception):
@@ -60,6 +72,11 @@ class Parser:
         self.block_tags = self.KNOWN_BLOCK_TAGS.copy()
         if discovered_blocks:
             self.block_tags.update(discovered_blocks)
+
+        # Initialize specialized parsers
+        self.expression_parser = ExpressionParser(self)
+        self.html_parser = HtmlParser(self)
+        self.template_parser = TemplateParser(self, self.expression_parser)
 
     def current(self) -> Token:
         """Get current token."""
@@ -228,92 +245,15 @@ class Parser:
     def parse_html_element(self) -> ast_nodes.HTMLElement | ast_nodes.VoidElement:
         """Parse HTML elements with automatic void element detection.
 
-        This method handles all HTML element parsing, automatically detecting
-        void/self-closing elements and treating them specially. Void elements
-        (like <img>, <br>, <input>) don't have closing tags in HTML5.
+        Delegates to HtmlParser for implementation.
 
-        Void Element Detection:
-            The parser maintains a VOID_ELEMENTS set of HTML5 void elements:
-            area, base, br, col, embed, hr, img, input, link, meta, param,
-            source, track, wbr.
-
-            When a void element is detected, returns VoidElement immediately
-            without expecting a closing tag. For all other elements, expects
-            matching closing tags with name verification.
-
-        Tag Name Matching:
-            Closing tags must match opening tags exactly (case-insensitive):
-            <div>...</div> ✓
-            <div>...</DIV> ✓
-            <div>...</span> ✗ ParseError
-
-        Nesting:
-            Supports arbitrary nesting of HTML elements and template tags:
-            <div>
-                {% if user %}
-                    <p>{{ user.name }}</p>
-                {% endif %}
-            </div>
-
-        Returns:
-            VoidElement: For void elements (no closing tag expected).
-            HTMLElement: For normal elements with children and closing tag.
-
-        Raises:
-            ParseError: If closing tag is missing or mismatched.
-
-        Examples:
-            <img src="photo.jpg"> → VoidElement('img', [Attribute('src', 'photo.jpg')])
-            <div class="box">text</div> → HTMLElement('div', [...], [TextNode('text')])
-            <p>Hello {{ name }}</p> → HTMLElement('p', [], [TextNode('Hello '), Variable(...)])
+        See HtmlParser.parse_html_element() for detailed documentation.
         """
-        open_token = self.expect(TokenType.HTML_OPEN_TAG)
-        tag_name = open_token.value
-
-        # Parse attributes
-        attributes = self.parse_attributes()
-
-        # Check if this is a void element (shouldn't have closing tag)
-        if tag_name.lower() in self.VOID_ELEMENTS:
-            return ast_nodes.VoidElement(tag_name=tag_name, attributes=attributes)
-
-        # Parse children until we hit the closing tag
-        children = []
-        while not self.match(TokenType.HTML_CLOSE_TAG, TokenType.EOF):
-            child = self.parse_element()
-            if child:
-                children.append(child)
-
-            # Safety check for closing tag
-            if self.match(TokenType.HTML_CLOSE_TAG):
-                break
-
-        # Expect closing tag
-        if not self.match(TokenType.HTML_CLOSE_TAG):
-            raise ParseError(
-                f"Expected closing tag for <{tag_name}> at line {self.current().line}"
-            )
-
-        close_token = self.expect(TokenType.HTML_CLOSE_TAG)
-
-        # Verify tag names match
-        if close_token.value != tag_name:
-            raise ParseError(
-                f"Mismatched closing tag: expected </{tag_name}> but got </{close_token.value}> "
-                f"at line {close_token.line}"
-            )
-
-        return ast_nodes.HTMLElement(
-            tag_name=tag_name, attributes=attributes, children=children
-        )
+        return self.html_parser.parse_html_element()
 
     def parse_void_element(self) -> ast_nodes.VoidElement:
         """Parse a self-closing/void element."""
-        token = self.expect(TokenType.HTML_SELF_CLOSE)
-        tag_name = token.value
-        attributes = self.parse_attributes()
-        return ast_nodes.VoidElement(tag_name=tag_name, attributes=attributes)
-
+        return self.html_parser.parse_void_element()
     def parse_attributes(self) -> list[ast_nodes.Attribute]:
         """Parse HTML element attributes with support for dynamic attribute names.
 
@@ -351,42 +291,16 @@ class Parser:
             disabled → [Attribute('disabled', None, is_dynamic_name=False)]
             {{ attr }}="val" → [Attribute('{{ attr }}', 'val', is_dynamic_name=True)]
         """
-        attributes = []
-
-        while self.match(TokenType.ATTR_NAME) or self.match(
-            TokenType.ATTR_NAME_DYNAMIC
-        ):
-            name_token = self.advance()
-            name = name_token.value
-            is_dynamic = name_token.type == TokenType.ATTR_NAME_DYNAMIC
-
-            # Check for attribute value
-            value = None
-            if self.match(TokenType.ATTR_VALUE):
-                value_token = self.advance()
-                value = value_token.value
-
-            attributes.append(
-                ast_nodes.Attribute(name=name, value=value, is_dynamic_name=is_dynamic)
-            )
-
-        return attributes
-
+        return self.html_parser.parse_attributes()
     def parse_doctype(self) -> ast_nodes.DocType:
         """Parse a DOCTYPE declaration."""
-        token = self.expect(TokenType.DOCTYPE)
-        return ast_nodes.DocType(content=token.value)
-
+        return self.html_parser.parse_doctype()
     def parse_html_comment(self) -> ast_nodes.HTMLComment:
         """Parse an HTML comment."""
-        token = self.expect(TokenType.HTML_COMMENT)
-        return ast_nodes.HTMLComment(content=token.value)
-
+        return self.html_parser.parse_html_comment()
     def parse_cdata(self) -> ast_nodes.CDATA:
         """Parse a CDATA section."""
-        token = self.expect(TokenType.CDATA)
-        return ast_nodes.CDATA(content=token.value)
-
+        return self.html_parser.parse_cdata()
     # ========================================================================
     # Template variable parsing
     # ========================================================================
@@ -411,138 +325,20 @@ class Parser:
     def parse_filter(self) -> ast_nodes.Filter:
         """Parse Django template filters with optional arguments.
 
-        Syntax:
-            |filter_name
-            |filter_name:arg
-            |filter_name:arg1,arg2,arg3
+        Delegates to ExpressionParser for implementation.
 
-        Filters:
-            Filters transform variable values during template rendering.
-            They follow the pipe (|) symbol and can take arguments separated
-            by colons and commas.
-
-        Filter Name:
-            Must be a valid identifier matching a registered filter function:
-            - Built-in: upper, lower, title, length, date, truncatewords, etc.
-            - Custom: Registered via template library loading
-
-        Arguments:
-            Filters can take zero or more arguments:
-            - No args: {{ value|upper }} - Just the filter name
-            - One arg: {{ text|truncatewords:10 }} - Colon separates arg
-            - Multiple args: {{ text|slice:1,3 }} - Comma separates args
-
-        Argument Types:
-            Filter arguments can be:
-            - Strings: |default:"no value"
-            - Numbers: |truncatewords:30
-            - Identifiers: |default:fallback_var (variable reference)
-            - Booleans: Not commonly used in Django filters
-
-        Chaining:
-            Multiple filters can be chained; each is parsed separately:
-            {{ text|lower|truncatewords:5 }}
-            Parsed as: Variable with filters [lower, truncatewords(5)]
-
-        Common Examples:
-            |upper - Uppercase transformation
-            |lower - Lowercase transformation
-            |title - Title case transformation
-            |length - Get length of sequence
-            |default:"N/A" - Default value if variable is falsy
-            |truncatewords:10 - Truncate to 10 words
-            |date:"Y-m-d" - Format date
-            |join:", " - Join list with separator
-
-        Returns:
-            Filter AST node with name and optional args list.
-
-        Raises:
-            ParseError: If filter syntax is malformed.
-
-        Examples:
-            {{ value|upper }}
-            → Filter(name='upper', args=[])
-
-            {{ text|truncatewords:30 }}
-            → Filter(name='truncatewords', args=[30])
-
-            {{ items|slice:1,3 }}
-            → Filter(name='slice', args=[1, 3])
+        See ExpressionParser.parse_filter() for detailed documentation.
         """
-        name_token = self.expect(TokenType.IDENTIFIER)
-        name = name_token.value
-
-        args: list[str | int | float | bool | ast_nodes.Expression | ast_nodes.Literal] = []
-        if self.match(TokenType.COLON):
-            self.advance()  # :
-
-            # Parse first argument
-            args.append(self.parse_filter_arg())
-
-            # Parse additional arguments
-            while self.match(TokenType.COMMA):
-                self.advance()  # ,
-                args.append(self.parse_filter_arg())
-
-        return ast_nodes.Filter(name=name, args=args)
+        return self.expression_parser.parse_filter()
 
     def parse_filter_arg(self) -> str | int | float:
-        """Parse individual filter arguments (strings, numbers, or identifiers).
+        """Parse individual filter arguments.
 
-        Filter arguments can be:
-        1. String literals: "value" or 'value'
-        2. Numeric literals: 42 or 3.14
-        3. Identifiers: variable names for dynamic arguments
+        Delegates to ExpressionParser for implementation.
 
-        String Arguments:
-            Quoted strings are used for literal values:
-            |default:"N/A" - String literal "N/A"
-            |date:"Y-m-d" - Format string "Y-m-d"
-
-        Numeric Arguments:
-            Numbers specify counts, indices, or sizes:
-            |truncatewords:10 - Integer 10
-            |slice:1,5 - Integers 1 and 5
-            |pluralize:2.5 - Float 2.5 (less common)
-
-        Identifier Arguments:
-            Identifiers reference variables for dynamic values:
-            |default:fallback_var - Use value of fallback_var
-            |join:separator - Use value of separator variable
-
-        Type Coercion:
-            - Strings remain as strings
-            - Numbers are parsed as int or float based on decimal point
-            - Identifiers are returned as strings (variable names)
-
-        Limitations:
-            - No expression evaluation in filter arguments
-            - No attribute lookups: |filter:obj.attr not supported
-            - Arguments are positional, order matters
-
-        Returns:
-            String (for string literals or identifiers) or
-            int/float (for numeric literals).
-
-        Raises:
-            ParseError: If argument token is not STRING, NUMBER, or IDENTIFIER.
-
-        Examples:
-            "N/A" → "N/A" (string)
-            10 → 10 (int)
-            3.14 → 3.14 (float)
-            my_var → "my_var" (identifier string)
+        See ExpressionParser.parse_filter_arg() for detailed documentation.
         """
-        if self.match(TokenType.STRING):
-            return self.advance().value
-        elif self.match(TokenType.NUMBER):
-            value = self.advance().value
-            return float(value) if "." in value else int(value)
-        elif self.match(TokenType.IDENTIFIER):
-            return self.advance().value
-        else:
-            raise ParseError(f"Expected filter argument at line {self.current().line}")
+        return self.expression_parser.parse_filter_arg()
 
     # ========================================================================
     # Expression parsing
@@ -551,134 +347,20 @@ class Parser:
     def parse_expression(self) -> ast_nodes.Expression | ast_nodes.Literal:
         """Parse variable expressions with Django's dot-notation lookups or literal values.
 
-        Django templates use a unique lookup syntax where dots perform multiple types
-        of lookups in order: dictionary key, attribute, list index. This parser
-        enforces Django's restrictions:
+        Delegates to ExpressionParser for implementation.
 
-        Supported:
-            - Literals: 42, 3.14, "string", True
-            - Simple variables: user, items, data
-            - Dot lookups: user.name, items.0, obj.attr.nested
-            - Keywords as attributes: obj.as, obj.if, obj.for
-
-        NOT Supported (Django restriction):
-            - Bracket notation: user['key'], items[0]
-            - Spaces in lookups: user. name, user .name, user . name
-            - Method calls: user.get_name()
-
-        Space Restrictions:
-            Django requires no spaces around dots in lookups. This parser validates
-            token positions to reject invalid spacing:
-            - {{ user.name }} ✓
-            - {{ user .name }} ✗
-            - {{ user. name }} ✗
-
-        Keyword Handling:
-            Django allows Python/template keywords as attribute names since they're
-            used as strings for lookups: {{ obj.as }}, {{ obj.if }}, {{ obj.for }}.
-            See is_identifier_like() for the full list.
-
-        Returns:
-            Expression: For variable lookups with base and optional attribute chain.
-            Literal: For numbers, strings, and booleans.
-
-        Raises:
-            ParseError: For invalid spacing, bracket syntax, or unknown tokens.
-
-        Examples:
-            user → Expression(base='user', lookups=[])
-            user.name → Expression(base='user', lookups=[Lookup('attribute', 'name')])
-            items.0 → Expression(base='items', lookups=[Lookup('attribute', '0')])
-            42 → Literal(value=42, type='number')
+        See ExpressionParser.parse_expression() for detailed documentation.
         """
-        # Check for literal values first
-        if self.match(TokenType.NUMBER):
-            value = self.advance().value
-            num_value = float(value) if "." in value else int(value)
-            return ast_nodes.Literal(value=num_value, type="number")
-
-        if self.match(TokenType.STRING):
-            value = self.advance().value
-            return ast_nodes.Literal(value=value, type="string")
-
-        # Parse base identifier
-        base_token = self.expect(TokenType.IDENTIFIER)
-        base = base_token.value
-
-        # Parse lookups (dot notation only - Django doesn't support brackets)
-        # Track previous token to check for spaces before dots
-        prev_token = base_token
-        lookups = []
-        while self.match(TokenType.DOT):
-            dot_token = self.advance()  # .
-
-            # Django doesn't allow spaces around dots in lookups
-            # Valid: user.name, items.0
-            # Invalid: user. name, user .name, user . name
-
-            # Check 1: No space before the dot
-            # The dot should immediately follow the previous token
-            expected_dot_col = prev_token.column + len(prev_token.value)
-            if (
-                dot_token.line != prev_token.line
-                or dot_token.column != expected_dot_col
-            ):
-                raise ParseError(
-                    f"No spaces allowed before '.' in lookups at line {dot_token.line}. "
-                    f"Use 'user.name' not 'user . name'"
-                )
-
-            # Check 2: No space after the dot
-            # The next token should immediately follow the dot
-            next_token = self.current()
-            if (
-                next_token.line != dot_token.line
-                or next_token.column != dot_token.column + 1
-            ):
-                raise ParseError(
-                    f"No spaces allowed after '.' in lookups at line {dot_token.line}. "
-                    f"Use 'user.name' not 'user . name'"
-                )
-
-            # Django allows identifiers, numbers, and keywords after dot
-            # e.g., user.name or items.0 or obj.as
-            if self.is_identifier_like():
-                attr_token = self.advance()
-                lookups.append(
-                    ast_nodes.Lookup(type="attribute", value=attr_token.value)
-                )
-                prev_token = attr_token  # Track for next iteration
-            else:
-                raise ParseError(
-                    f"Expected attribute name or index after '.' at line {self.current().line}"
-                )
-
-        return ast_nodes.Expression(base=base, lookups=lookups)
+        return self.expression_parser.parse_expression()
 
     def parse_expression_with_filters(
         self,
     ) -> ast_nodes.Expression | ast_nodes.Literal | ast_nodes.FilteredExpression:
+        """Parse an expression with optional filters.
+
+        Delegates to ExpressionParser for implementation.
         """
-        Parse an expression with optional filters.
-
-        Used in conditions where filters are allowed: {% if field|length > 1 %}
-        Returns ast_nodes.Expression/ast_nodes.Literal if no filters, ast_nodes.FilteredExpression if filters present.
-        """
-        # Parse base expression
-        expression = self.parse_expression()
-
-        # Check for filters
-        if self.match(TokenType.PIPE):
-            filters = []
-            while self.match(TokenType.PIPE):
-                self.advance()  # |
-                filters.append(self.parse_filter())
-
-            # Wrap in FilteredExpression
-            return ast_nodes.FilteredExpression(expression=expression, filters=filters)
-
-        # No filters, return plain expression
-        return expression
+        return self.expression_parser.parse_expression_with_filters()
 
     # ========================================================================
     # Template tag parsing
@@ -1874,73 +1556,23 @@ class Parser:
 
     def parse_block_body(self, end_tokens: list[TokenType]) -> list[ast_nodes.ASTNode]:
         """Parse the body of a block until we hit an end token."""
-        children = []
-
-        while not self.match(TokenType.EOF):
-            # Check if we've hit an end token
-            if self.match(TokenType.TEMPLATE_TAG_START):
-                next_token = self.peek()
-                if next_token.type in end_tokens:
-                    break
-
-            child = self.parse_element()
-            if child:
-                children.append(child)
-
-        return children
-
+        return self.template_parser.parse_block_body(end_tokens)
     # ========================================================================
     # Condition parsing (for if/elif)
     # ========================================================================
 
     def parse_condition(self) -> ast_nodes.Condition:
         """Parse a boolean condition."""
-        return self.parse_or_condition()
-
+        return self.template_parser.parse_condition()
     def parse_or_condition(self) -> ast_nodes.Condition:
         """Parse OR conditions."""
-        left = self.parse_and_condition()
-
-        if self.match(TokenType.OR):
-            operands = [left]
-            while self.match(TokenType.OR):
-                self.advance()
-                operands.append(self.parse_and_condition())
-            return ast_nodes.BooleanOp(operator="or", operands=operands)
-
-        return left
-
+        return self.template_parser.parse_or_condition()
     def parse_and_condition(self) -> ast_nodes.Condition:
         """Parse AND conditions."""
-        left = self.parse_not_condition()
-
-        if self.match(TokenType.AND):
-            operands = [left]
-            while self.match(TokenType.AND):
-                self.advance()
-                operands.append(self.parse_not_condition())
-            return ast_nodes.BooleanOp(operator="and", operands=operands)
-
-        return left
-
+        return self.template_parser.parse_and_condition()
     def parse_not_condition(self) -> ast_nodes.Condition:
         """Parse NOT conditions."""
-        if self.match(TokenType.NOT):
-            self.advance()
-            condition = self.parse_primary_condition()
-            # If it's already a SimpleCondition, just toggle its negation
-            if isinstance(condition, ast_nodes.SimpleCondition):
-                return ast_nodes.SimpleCondition(
-                    expression=condition.expression, negated=not condition.negated
-                )
-            # For other conditions (Comparison, etc.), wrap in BooleanOp with negation
-            # Note: Django doesn't really support "not (x == y)" syntax well,
-            # but we handle it by wrapping in a negated simple condition with the comparison
-            # This is a simplification - ideally we'd have a proper NegatedCondition type
-            return condition
-
-        return self.parse_primary_condition()
-
+        return self.template_parser.parse_not_condition()
     def parse_primary_condition(self) -> ast_nodes.Condition:
         """Parse the primary unit of a condition: comparison or truthiness check.
 
@@ -1975,43 +1607,7 @@ class Parser:
             user → SimpleCondition(expression=user, negated=False)
             items|length > 0 → Comparison(left=FilteredExpression(...), operator='>', right=0)
         """
-        # Parse left side (with optional filters)
-        left = self.parse_expression_with_filters()
-
-        # Check for comparison operator
-        if self.match(
-            TokenType.EQ,
-            TokenType.NE,
-            TokenType.LT,
-            TokenType.GT,
-            TokenType.LE,
-            TokenType.GE,
-        ):
-            op_token = self.advance()
-            right = self.parse_expression_with_filters()
-
-            op_map = {
-                TokenType.EQ: "==",
-                TokenType.NE: "!=",
-                TokenType.LT: "<",
-                TokenType.GT: ">",
-                TokenType.LE: "<=",
-                TokenType.GE: ">=",
-            }
-
-            return ast_nodes.Comparison(
-                left=left, operator=op_map[op_token.type], right=right
-            )
-
-        # Check for 'in' operator
-        if self.match(TokenType.IN):
-            self.advance()
-            right = self.parse_expression_with_filters()
-            return ast_nodes.Comparison(left=left, operator="in", right=right)
-
-        # Simple expression (truthy check)
-        return ast_nodes.SimpleCondition(expression=left, negated=False)
-
+        return self.template_parser.parse_primary_condition()
     # ========================================================================
     # Comment parsing
     # ========================================================================
