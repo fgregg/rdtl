@@ -6,7 +6,8 @@ Evaluates the AST and produces HTML output.
 
 from typing import Any
 
-from rdtl.ast_nodes import *
+from rdtl import ast_nodes
+from rdtl.parser import parse
 
 
 class RenderContext:
@@ -39,7 +40,7 @@ class RenderContext:
         self.stack[-1][name] = value
 
 
-class Renderer(ASTVisitor):
+class Renderer(ast_nodes.ASTVisitor):
     """
     Renders an RDTL template AST to HTML.
 
@@ -63,7 +64,7 @@ class Renderer(ASTVisitor):
             "date": self._filter_date,
         }
 
-    def render(self, node: ASTNode) -> str:
+    def render(self, node: ast_nodes.ASTNode) -> str:
         """Render a template AST to HTML string."""
         self.output = []
         self.visit(node)
@@ -77,12 +78,12 @@ class Renderer(ASTVisitor):
     # Visitor methods
     # ========================================================================
 
-    def visit_Document(self, node: Document):
+    def visit_Document(self, node: ast_nodes.Document):
         """Render the document."""
         for child in node.children:
             self.visit(child)
 
-    def visit_HTMLElement(self, node: HTMLElement):
+    def visit_HTMLElement(self, node: ast_nodes.HTMLElement):
         """Render an HTML element."""
         # Opening tag
         self.write(f"<{node.tag_name}")
@@ -106,7 +107,7 @@ class Renderer(ASTVisitor):
         # Closing tag
         self.write(f"</{node.tag_name}>")
 
-    def visit_VoidElement(self, node: VoidElement):
+    def visit_VoidElement(self, node: ast_nodes.VoidElement):
         """Render a void HTML element."""
         self.write(f"<{node.tag_name}")
 
@@ -119,11 +120,11 @@ class Renderer(ASTVisitor):
 
         self.write(">")
 
-    def visit_TextNode(self, node: TextNode):
+    def visit_TextNode(self, node: ast_nodes.TextNode):
         """Render plain text."""
         self.write(node.content)
 
-    def visit_Variable(self, node: Variable):
+    def visit_Variable(self, node: ast_nodes.Variable):
         """Render a template variable."""
         # Evaluate the expression
         value = self._eval_expression(node.expression)
@@ -135,7 +136,7 @@ class Renderer(ASTVisitor):
         # Convert to string and escape
         self.write(self._escape_html(str(value)))
 
-    def visit_IfBlock(self, node: IfBlock):
+    def visit_IfBlock(self, node: ast_nodes.IfBlock):
         """Render an if/elif/else block."""
         # Evaluate if condition
         if self._eval_condition(node.if_condition):
@@ -155,7 +156,7 @@ class Renderer(ASTVisitor):
             for child in node.else_children:
                 self.visit(child)
 
-    def visit_ForBlock(self, node: ForBlock):
+    def visit_ForBlock(self, node: ast_nodes.ForBlock):
         """Render a for loop."""
         # Evaluate the iterable
         iterable = self._eval_expression(node.iterable)
@@ -184,13 +185,13 @@ class Renderer(ASTVisitor):
             # Pop context
             self.context.pop()
 
-    def visit_BlockTag(self, node: BlockTag):
+    def visit_BlockTag(self, node: ast_nodes.BlockTag):
         """Render a block tag (simplified - no inheritance)."""
         # For now, just render the children
         for child in node.children:
             self.visit(child)
 
-    def visit_WithBlock(self, node: WithBlock):
+    def visit_WithBlock(self, node: ast_nodes.WithBlock):
         """Render a with block."""
         # Create new context with assignments
         new_context = {}
@@ -205,29 +206,29 @@ class Renderer(ASTVisitor):
 
         self.context.pop()
 
-    def visit_IncludeTag(self, node: IncludeTag):
+    def visit_IncludeTag(self, node: ast_nodes.IncludeTag):
         """Render an include tag."""
         # Simplified: just output a comment
         self.write(f"<!-- include: {node.template_name} -->")
 
-    def visit_ExtendsTag(self, node: ExtendsTag):
+    def visit_ExtendsTag(self, node: ast_nodes.ExtendsTag):
         """Render an extends tag."""
         # Simplified: just output a comment
         self.write(f"<!-- extends: {node.parent_template} -->")
 
-    def visit_LoadTag(self, node: LoadTag):
+    def visit_LoadTag(self, node: ast_nodes.LoadTag):
         """Render a load tag."""
         # Simplified: no output (load tags don't produce HTML)
         pass
 
-    def visit_CsrfTokenTag(self, node: CsrfTokenTag):
+    def visit_CsrfTokenTag(self, node: ast_nodes.CsrfTokenTag):
         """Render a CSRF token tag."""
         # Simplified: output a placeholder
         self.write(
             '<input type="hidden" name="csrfmiddlewaretoken" value="csrf_token_placeholder">'
         )
 
-    def visit_Comment(self, node: Comment):
+    def visit_Comment(self, node: ast_nodes.Comment):
         """Render a template comment (don't output anything)."""
         # Template comments are not rendered
         pass
@@ -236,12 +237,12 @@ class Renderer(ASTVisitor):
     # Expression evaluation
     # ========================================================================
 
-    def _eval_expression(self, expr: Union[Expression, Literal]) -> Any:
+    def _eval_expression(self, expr: ast_nodes.Expression | ast_nodes.Literal) -> Any:
         """Evaluate an expression to a value."""
-        if isinstance(expr, Literal):
+        if isinstance(expr, ast_nodes.Literal):
             return expr.value
 
-        if isinstance(expr, Expression):
+        if isinstance(expr, ast_nodes.Expression):
             # Get base variable
             value = self.context.get(expr.base)
 
@@ -269,14 +270,14 @@ class Renderer(ASTVisitor):
 
         return None
 
-    def _eval_condition(self, condition: Condition) -> bool:
+    def _eval_condition(self, condition: ast_nodes.Condition) -> bool:
         """Evaluate a condition to a boolean."""
-        if isinstance(condition, SimpleCondition):
+        if isinstance(condition, ast_nodes.SimpleCondition):
             value = self._eval_expression(condition.expression)
             result = self._is_truthy(value)
             return not result if condition.negated else result
 
-        elif isinstance(condition, Comparison):
+        elif isinstance(condition, ast_nodes.Comparison):
             left = self._eval_expression(condition.left)
             right = self._eval_expression(condition.right)
 
@@ -295,7 +296,7 @@ class Renderer(ASTVisitor):
             elif condition.operator == "in":
                 return left in right if right else False
 
-        elif isinstance(condition, BooleanOp):
+        elif isinstance(condition, ast_nodes.BooleanOp):
             if condition.operator == "and":
                 return all(self._eval_condition(c) for c in condition.operands)
             elif condition.operator == "or":
@@ -317,7 +318,7 @@ class Renderer(ASTVisitor):
     # Filters
     # ========================================================================
 
-    def _apply_filter(self, value: Any, filter_node: Filter) -> Any:
+    def _apply_filter(self, value: Any, filter_node: ast_nodes.Filter) -> Any:
         """Apply a filter to a value."""
         filter_name = filter_node.name
 
@@ -380,8 +381,6 @@ def render(template: str, context: dict[str, Any] | None = None) -> str:
     Returns:
         Rendered HTML string
     """
-    from rdtl.parser import parse
-
     ast = parse(template)
     renderer = Renderer(context)
     return renderer.render(ast)

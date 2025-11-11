@@ -110,8 +110,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/rdtl/formatter.py" = ["F403", "F405", "PLC0415"]  # Star imports and lazy imports for visitor pattern
-"src/rdtl/parser.py" = ["F403", "F405", "PLC0415"]     # Star imports and lazy imports for AST construction
-"src/rdtl/renderer.py" = ["F403", "F405", "PLC0415"]   # Star imports and lazy imports for renderer
-"tests/test_parser.py" = ["F403", "F405"]               # Star imports for test assertions
 "tests/*.py" = ["PT009", "PT027", "PLC0415", "F841"]    # unittest.TestCase style, lazy imports in tests OK

@@ -6,10 +6,8 @@ Pretty-prints templates with consistent indentation and spacing.
 
 from dataclasses import dataclass
 
-from rdtl.ast_nodes import *  # noqa: F403, F405
-
-# Note: Star import is intentional - formatter needs access to all AST node types.
-# This keeps the visitor pattern clean and avoids verbose imports.
+from rdtl import ast_nodes
+from rdtl.parser import parse
 
 
 @dataclass
@@ -42,7 +40,7 @@ class FormatOptions:
     preserve_comments: bool = True
 
 
-class Formatter(ASTVisitor):
+class Formatter(ast_nodes.ASTVisitor):
     """
     Formats RDTL templates with consistent style.
 
@@ -58,7 +56,7 @@ class Formatter(ASTVisitor):
         self.needs_indent = True
         self.last_was_block = False
 
-    def format(self, node: ASTNode) -> str:
+    def format(self, node: ast_nodes.ASTNode) -> str:
         """Format an AST to a pretty-printed string."""
         self.output = []
         self.indent_level = 0
@@ -117,16 +115,16 @@ class Formatter(ASTVisitor):
     # Visitor methods
     # ========================================================================
 
-    def visit_Document(self, node: Document):
+    def visit_Document(self, node: ast_nodes.Document):
         """Format the document."""
         for i, child in enumerate(node.children):
             # Skip pure whitespace text nodes at document level
-            if isinstance(child, TextNode) and not child.content.strip():
+            if isinstance(child, ast_nodes.TextNode) and not child.content.strip():
                 continue
 
             self.visit(child)
 
-    def visit_HTMLElement(self, node: HTMLElement):
+    def visit_HTMLElement(self, node: ast_nodes.HTMLElement):
         """Format an HTML element."""
         tag = node.tag_name
 
@@ -145,7 +143,15 @@ class Formatter(ASTVisitor):
 
         # Determine if we should format children inline or block
         has_block_children = any(
-            isinstance(child, (HTMLElement, IfBlock, ForBlock, BlockTag))
+            isinstance(
+                child,
+                (
+                    ast_nodes.HTMLElement,
+                    ast_nodes.IfBlock,
+                    ast_nodes.ForBlock,
+                    ast_nodes.BlockTag,
+                ),
+            )
             for child in node.children
         )
 
@@ -163,7 +169,7 @@ class Formatter(ASTVisitor):
         else:
             # Inline formatting
             for child in node.children:
-                if isinstance(child, TextNode):
+                if isinstance(child, ast_nodes.TextNode):
                     self.output.append(child.content)
                 else:
                     self.visit(child)
@@ -171,7 +177,7 @@ class Formatter(ASTVisitor):
             self.output.append(f"</{tag}>")
             self.writeln()
 
-    def visit_VoidElement(self, node: VoidElement):
+    def visit_VoidElement(self, node: ast_nodes.VoidElement):
         """Format a void element."""
         self.write(f"<{node.tag_name}")
 
@@ -204,7 +210,7 @@ class Formatter(ASTVisitor):
 
         self.writeln(f"<![CDATA[{node.content}]]>")
 
-    def visit_TextNode(self, node: TextNode):
+    def visit_TextNode(self, node: ast_nodes.TextNode):
         """Format text node."""
         # For text nodes inside block elements, write as-is
         # The parent element handles indentation
@@ -216,7 +222,7 @@ class Formatter(ASTVisitor):
 
         self.write(content)
 
-    def visit_Variable(self, node: Variable):
+    def visit_Variable(self, node: ast_nodes.Variable):
         """Format a template variable."""
         if self.options.space_in_variables:
             self.write("{{ ")
@@ -244,7 +250,7 @@ class Formatter(ASTVisitor):
         else:
             self.write("}}")
 
-    def visit_IfBlock(self, node: IfBlock):
+    def visit_IfBlock(self, node: ast_nodes.IfBlock):
         """Format an if block."""
         if self.options.blank_line_before_block and self.last_was_block:
             self.writeln()
@@ -322,7 +328,7 @@ class Formatter(ASTVisitor):
 
         self.last_was_block = True
 
-    def visit_ForBlock(self, node: ForBlock):
+    def visit_ForBlock(self, node: ast_nodes.ForBlock):
         """Format a for loop."""
         if self.options.blank_line_before_block and self.last_was_block:
             self.writeln()
@@ -375,7 +381,7 @@ class Formatter(ASTVisitor):
 
         self.last_was_block = True
 
-    def visit_BlockTag(self, node: BlockTag):
+    def visit_BlockTag(self, node: ast_nodes.BlockTag):
         """Format a block tag."""
         if self.options.blank_line_before_block and self.last_was_block:
             self.writeln()
@@ -407,7 +413,7 @@ class Formatter(ASTVisitor):
 
         self.last_was_block = True
 
-    def visit_WithBlock(self, node: WithBlock):
+    def visit_WithBlock(self, node: ast_nodes.WithBlock):
         """Format a with block."""
         if self.options.space_in_template_tags:
             self.write("{% with ")
@@ -444,7 +450,7 @@ class Formatter(ASTVisitor):
 
         self.last_was_block = True
 
-    def visit_IncludeTag(self, node: IncludeTag):
+    def visit_IncludeTag(self, node: ast_nodes.IncludeTag):
         """Format an include tag with optional 'with' clause."""
         quote = '"' if self.options.quotes == "double" else "'"
 
@@ -467,7 +473,7 @@ class Formatter(ASTVisitor):
         else:
             self.writeln(f"{{%{tag_content}%}}")
 
-    def visit_ExtendsTag(self, node: ExtendsTag):
+    def visit_ExtendsTag(self, node: ast_nodes.ExtendsTag):
         """Format an extends tag."""
         quote = '"' if self.options.quotes == "double" else "'"
 
@@ -476,7 +482,7 @@ class Formatter(ASTVisitor):
         else:
             self.writeln(f"{{%extends {quote}{node.parent_template}{quote}%}}")
 
-    def visit_LoadTag(self, node: LoadTag):
+    def visit_LoadTag(self, node: ast_nodes.LoadTag):
         """Format a load tag."""
         libraries = " ".join(node.libraries)
         if self.options.space_in_template_tags:
@@ -486,15 +492,14 @@ class Formatter(ASTVisitor):
 
     def visit_UrlTag(self, node):
         """Format a url tag."""
-        from rdtl.ast_nodes import Expression, Literal
 
         def format_arg(arg):
             """Format an argument (string, number, expression, or literal)."""
             if isinstance(arg, str):
                 return repr(arg)
-            elif isinstance(arg, Expression):
+            elif isinstance(arg, ast_nodes.Expression):
                 return str(arg)
-            elif isinstance(arg, Literal):
+            elif isinstance(arg, ast_nodes.Literal):
                 # For literals, format the value directly
                 if arg.type == "string":
                     return repr(arg.value)
@@ -534,7 +539,7 @@ class Formatter(ASTVisitor):
             else:
                 self.writeln(f"{{%static {path_str}%}}")
 
-    def visit_CsrfTokenTag(self, node: CsrfTokenTag):
+    def visit_CsrfTokenTag(self, node: ast_nodes.CsrfTokenTag):
         """Format a csrf_token tag."""
         if self.options.space_in_template_tags:
             self.writeln("{% csrf_token %}")
@@ -774,21 +779,21 @@ class Formatter(ASTVisitor):
         else:
             self.writeln("{%endautoescape%}")
 
-    def visit_Comment(self, node: Comment):
+    def visit_Comment(self, node: ast_nodes.Comment):
         """Format a template comment."""
         if self.options.preserve_comments:
             self.writeln(f"{{# {node.content} #}}")
 
-    def _format_condition(self, condition: Condition) -> str:
+    def _format_condition(self, condition: ast_nodes.Condition) -> str:
         """Format a condition to string."""
-        if isinstance(condition, SimpleCondition):
+        if isinstance(condition, ast_nodes.SimpleCondition):
             not_str = "not " if condition.negated else ""
             return f"{not_str}{condition.expression}"
 
-        elif isinstance(condition, Comparison):
+        elif isinstance(condition, ast_nodes.Comparison):
             return f"{condition.left} {condition.operator} {condition.right}"
 
-        elif isinstance(condition, BooleanOp):
+        elif isinstance(condition, ast_nodes.BooleanOp):
             parts = [self._format_condition(c) for c in condition.operands]
             return f" {condition.operator} ".join(parts)
 
@@ -806,8 +811,6 @@ def format_template(template: str, options: FormatOptions | None = None) -> str:
     Returns:
         Formatted template string
     """
-    from rdtl.parser import parse
-
     ast = parse(template)
     formatter = Formatter(options)
     return formatter.format(ast)

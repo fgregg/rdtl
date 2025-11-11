@@ -4,7 +4,9 @@ Recursive descent parser for RDTL.
 Converts token stream into an Abstract Syntax Tree (AST).
 """
 
-from rdtl.ast_nodes import *  # noqa: F403, F405
+import re
+
+from rdtl import ast_nodes
 from rdtl.lexer import Lexer, Token, TokenType
 
 
@@ -97,7 +99,7 @@ class Parser:
     # Main parsing methods
     # ========================================================================
 
-    def parse(self) -> Document:
+    def parse(self) -> ast_nodes.Document:
         """Parse the entire template into a Document."""
         children = []
 
@@ -106,9 +108,9 @@ class Parser:
             if child:
                 children.append(child)
 
-        return Document(children=children)
+        return ast_nodes.Document(children=children)
 
-    def parse_element(self) -> ASTNode | None:
+    def parse_element(self) -> ast_nodes.ASTNode | None:
         """Parse a single element (HTML, template, text, etc.)."""
         token = self.current()
 
@@ -149,10 +151,10 @@ class Parser:
             text = self.advance().value
             # Skip empty whitespace-only text nodes
             if text.strip():
-                return TextNode(content=text)
+                return ast_nodes.TextNode(content=text)
             # But keep them if they have content
             if text:
-                return TextNode(content=text)
+                return ast_nodes.TextNode(content=text)
             return None
 
         # Ignore closing tags here - they're handled by parse_html_element
@@ -167,7 +169,7 @@ class Parser:
     # HTML parsing
     # ========================================================================
 
-    def parse_html_element(self) -> HTMLElement:
+    def parse_html_element(self) -> ast_nodes.HTMLElement:
         """Parse an HTML element with opening and closing tags."""
         open_token = self.expect(TokenType.HTML_OPEN_TAG)
         tag_name = open_token.value
@@ -177,7 +179,7 @@ class Parser:
 
         # Check if this is a void element (shouldn't have closing tag)
         if tag_name.lower() in self.VOID_ELEMENTS:
-            return VoidElement(tag_name=tag_name, attributes=attributes)
+            return ast_nodes.VoidElement(tag_name=tag_name, attributes=attributes)
 
         # Parse children until we hit the closing tag
         children = []
@@ -205,16 +207,18 @@ class Parser:
                 f"at line {close_token.line}"
             )
 
-        return HTMLElement(tag_name=tag_name, attributes=attributes, children=children)
+        return ast_nodes.HTMLElement(
+            tag_name=tag_name, attributes=attributes, children=children
+        )
 
-    def parse_void_element(self) -> VoidElement:
+    def parse_void_element(self) -> ast_nodes.VoidElement:
         """Parse a self-closing/void element."""
         token = self.expect(TokenType.HTML_SELF_CLOSE)
         tag_name = token.value
         attributes = self.parse_attributes()
-        return VoidElement(tag_name=tag_name, attributes=attributes)
+        return ast_nodes.VoidElement(tag_name=tag_name, attributes=attributes)
 
-    def parse_attributes(self) -> list[Attribute]:
+    def parse_attributes(self) -> list[ast_nodes.Attribute]:
         """Parse HTML attributes (supports both static and dynamic names)."""
         attributes = []
 
@@ -232,31 +236,31 @@ class Parser:
                 value = value_token.value
 
             attributes.append(
-                Attribute(name=name, value=value, is_dynamic_name=is_dynamic)
+                ast_nodes.Attribute(name=name, value=value, is_dynamic_name=is_dynamic)
             )
 
         return attributes
 
-    def parse_doctype(self) -> DocType:
+    def parse_doctype(self) -> ast_nodes.DocType:
         """Parse a DOCTYPE declaration."""
         token = self.expect(TokenType.DOCTYPE)
-        return DocType(content=token.value)
+        return ast_nodes.DocType(content=token.value)
 
-    def parse_html_comment(self) -> HTMLComment:
+    def parse_html_comment(self) -> ast_nodes.HTMLComment:
         """Parse an HTML comment."""
         token = self.expect(TokenType.HTML_COMMENT)
-        return HTMLComment(content=token.value)
+        return ast_nodes.HTMLComment(content=token.value)
 
-    def parse_cdata(self) -> CDATA:
+    def parse_cdata(self) -> ast_nodes.CDATA:
         """Parse a CDATA section."""
         token = self.expect(TokenType.CDATA)
-        return CDATA(content=token.value)
+        return ast_nodes.CDATA(content=token.value)
 
     # ========================================================================
     # Template variable parsing
     # ========================================================================
 
-    def parse_variable(self) -> Variable:
+    def parse_variable(self) -> ast_nodes.Variable:
         """Parse {{ variable|filter }}."""
         self.expect(TokenType.TEMPLATE_VAR_START)
 
@@ -271,9 +275,9 @@ class Parser:
 
         self.expect(TokenType.TEMPLATE_VAR_END)
 
-        return Variable(expression=expression, filters=filters)
+        return ast_nodes.Variable(expression=expression, filters=filters)
 
-    def parse_filter(self) -> Filter:
+    def parse_filter(self) -> ast_nodes.Filter:
         """Parse a filter: filter_name or filter_name:arg1,arg2."""
         name_token = self.expect(TokenType.IDENTIFIER)
         name = name_token.value
@@ -290,7 +294,7 @@ class Parser:
                 self.advance()  # ,
                 args.append(self.parse_filter_arg())
 
-        return Filter(name=name, args=args)
+        return ast_nodes.Filter(name=name, args=args)
 
     def parse_filter_arg(self) -> str | int | float:
         """Parse a filter argument (string, number, or identifier)."""
@@ -308,13 +312,13 @@ class Parser:
     # Expression parsing
     # ========================================================================
 
-    def parse_expression(self) -> Expression | Literal:
+    def parse_expression(self) -> ast_nodes.Expression | ast_nodes.Literal:
         """
         Parse a variable expression or literal: user.name, items.0, 42, "string".
 
         Note: Django only supports dot notation, not bracket notation.
         Examples:
-            {{ user.name }}     ✓ Attribute access
+            {{ user.name }}     ✓ ast_nodes.Attribute access
             {{ items.0 }}       ✓ Numeric index via dot
             {{ user['name'] }}  ✗ NOT supported (no bracket syntax)
             {{ items[0] }}      ✗ NOT supported (no bracket syntax)
@@ -323,11 +327,11 @@ class Parser:
         if self.match(TokenType.NUMBER):
             value = self.advance().value
             num_value = float(value) if "." in value else int(value)
-            return Literal(value=num_value, type="number")
+            return ast_nodes.Literal(value=num_value, type="number")
 
         if self.match(TokenType.STRING):
             value = self.advance().value
-            return Literal(value=value, type="string")
+            return ast_nodes.Literal(value=value, type="string")
 
         # Parse base identifier
         base_token = self.expect(TokenType.IDENTIFIER)
@@ -372,27 +376,31 @@ class Parser:
             # e.g., user.name or items.0
             if self.match(TokenType.IDENTIFIER):
                 attr_token = self.advance()
-                lookups.append(Lookup(type="attribute", value=attr_token.value))
+                lookups.append(
+                    ast_nodes.Lookup(type="attribute", value=attr_token.value)
+                )
                 prev_token = attr_token  # Track for next iteration
             elif self.match(TokenType.NUMBER):
                 num_token = self.advance()
-                lookups.append(Lookup(type="attribute", value=num_token.value))
+                lookups.append(
+                    ast_nodes.Lookup(type="attribute", value=num_token.value)
+                )
                 prev_token = num_token  # Track for next iteration
             else:
                 raise ParseError(
                     f"Expected attribute name or index after '.' at line {self.current().line}"
                 )
 
-        return Expression(base=base, lookups=lookups)
+        return ast_nodes.Expression(base=base, lookups=lookups)
 
     def parse_expression_with_filters(
         self,
-    ) -> Expression | Literal | FilteredExpression:
+    ) -> ast_nodes.Expression | ast_nodes.Literal | ast_nodes.FilteredExpression:
         """
         Parse an expression with optional filters.
 
         Used in conditions where filters are allowed: {% if field|length > 1 %}
-        Returns Expression/Literal if no filters, FilteredExpression if filters present.
+        Returns ast_nodes.Expression/ast_nodes.Literal if no filters, ast_nodes.FilteredExpression if filters present.
         """
         # Parse base expression
         expression = self.parse_expression()
@@ -405,7 +413,7 @@ class Parser:
                 filters.append(self.parse_filter())
 
             # Wrap in FilteredExpression
-            return FilteredExpression(expression=expression, filters=filters)
+            return ast_nodes.FilteredExpression(expression=expression, filters=filters)
 
         # No filters, return plain expression
         return expression
@@ -414,7 +422,7 @@ class Parser:
     # Template tag parsing
     # ========================================================================
 
-    def parse_template_tag(self) -> ASTNode:
+    def parse_template_tag(self) -> ast_nodes.ASTNode:
         """Parse template tags like {% if %}, {% for %}, etc."""
         self.expect(TokenType.TEMPLATE_TAG_START)
 
@@ -523,7 +531,7 @@ class Parser:
                 f"Unknown template tag {self.current().value} at line {self.current().line}"
             )
 
-    def parse_if_block(self) -> IfBlock:
+    def parse_if_block(self) -> ast_nodes.IfBlock:
         """Parse {% if condition %}...{% elif %}...{% else %}...{% endif %}."""
         self.expect(TokenType.IF)
 
@@ -570,14 +578,14 @@ class Parser:
         self.expect(TokenType.ENDIF)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return IfBlock(
+        return ast_nodes.IfBlock(
             if_condition=if_condition,
             if_children=if_children,
             elif_branches=elif_branches,
             else_children=else_children,
         )
 
-    def parse_for_block(self) -> ForBlock:
+    def parse_for_block(self) -> ast_nodes.ForBlock:
         """Parse {% for item in items %} or {% for key, value in items %}."""
         self.expect(TokenType.FOR)
 
@@ -618,14 +626,14 @@ class Parser:
         self.expect(TokenType.ENDFOR)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return ForBlock(
+        return ast_nodes.ForBlock(
             loop_vars=loop_vars,
             iterable=iterable,
             children=children,
             empty_children=empty_children,
         )
 
-    def parse_block_tag(self) -> BlockTag:
+    def parse_block_tag(self) -> ast_nodes.BlockTag:
         """Parse {% block name %}...{% endblock %}."""
         self.expect(TokenType.BLOCK)
 
@@ -652,9 +660,9 @@ class Parser:
 
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return BlockTag(name=name, children=children)
+        return ast_nodes.BlockTag(name=name, children=children)
 
-    def parse_with_block(self) -> WithBlock:
+    def parse_with_block(self) -> ast_nodes.WithBlock:
         """Parse {% with var=value %}...{% endwith %}."""
         self.expect(TokenType.WITH)
 
@@ -683,9 +691,9 @@ class Parser:
         self.expect(TokenType.ENDWITH)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return WithBlock(assignments=assignments, children=children)
+        return ast_nodes.WithBlock(assignments=assignments, children=children)
 
-    def parse_include_tag(self) -> IncludeTag:
+    def parse_include_tag(self) -> ast_nodes.IncludeTag:
         """
         Parse {% include "template.html" %} or {% include "template.html" with var=value %}.
 
@@ -727,14 +735,16 @@ class Parser:
 
         # If template_name is a string, use it directly; otherwise it's an Expression
         if isinstance(template_name, str):
-            return IncludeTag(template_name=template_name, context_vars=context_vars)
+            return ast_nodes.IncludeTag(
+                template_name=template_name, context_vars=context_vars
+            )
         else:
             # For variable includes, convert expression to string representation
-            return IncludeTag(
+            return ast_nodes.IncludeTag(
                 template_name=str(template_name), context_vars=context_vars
             )
 
-    def parse_extends_tag(self) -> ExtendsTag:
+    def parse_extends_tag(self) -> ast_nodes.ExtendsTag:
         """Parse {% extends "base.html" %}."""
         self.expect(TokenType.EXTENDS)
 
@@ -743,9 +753,9 @@ class Parser:
 
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return ExtendsTag(parent_template=parent_template)
+        return ast_nodes.ExtendsTag(parent_template=parent_template)
 
-    def parse_load_tag(self) -> LoadTag:
+    def parse_load_tag(self) -> ast_nodes.LoadTag:
         """Parse {% load static %} or {% load static humanize %}."""
         self.expect(TokenType.LOAD)
 
@@ -770,9 +780,9 @@ class Parser:
 
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return LoadTag(libraries=libraries)
+        return ast_nodes.LoadTag(libraries=libraries)
 
-    def parse_url_tag(self) -> UrlTag:
+    def parse_url_tag(self) -> ast_nodes.UrlTag:
         """Parse {% url 'view_name' arg1 arg2 key=val as var %}."""
         self.expect(TokenType.URL)
 
@@ -819,9 +829,11 @@ class Parser:
                 break
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return UrlTag(view_name=view_name, args=args, kwargs=kwargs, as_var=as_var)
+        return ast_nodes.UrlTag(
+            view_name=view_name, args=args, kwargs=kwargs, as_var=as_var
+        )
 
-    def parse_static_tag(self) -> StaticTag:
+    def parse_static_tag(self) -> ast_nodes.StaticTag:
         """Parse {% static 'path/to/file.css' as var %}."""
         self.expect(TokenType.STATIC)
 
@@ -842,16 +854,16 @@ class Parser:
             as_var = self.expect(TokenType.IDENTIFIER).value
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return StaticTag(path=path, as_var=as_var)
+        return ast_nodes.StaticTag(path=path, as_var=as_var)
 
-    def parse_csrf_token_tag(self) -> CsrfTokenTag:
+    def parse_csrf_token_tag(self) -> ast_nodes.CsrfTokenTag:
         """Parse {% csrf_token %}."""
         self.expect(TokenType.CSRF_TOKEN)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return CsrfTokenTag()
+        return ast_nodes.CsrfTokenTag()
 
-    def parse_cycle_tag(self) -> CycleTag:
+    def parse_cycle_tag(self) -> ast_nodes.CycleTag:
         """Parse {% cycle 'val1' 'val2' as name %} or {% cycle name %}."""
         self.expect(TokenType.CYCLE)
 
@@ -877,9 +889,9 @@ class Parser:
                 break
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return CycleTag(values=values, cycle_name=cycle_name)
+        return ast_nodes.CycleTag(values=values, cycle_name=cycle_name)
 
-    def parse_resetcycle_tag(self) -> ResetCycleTag:
+    def parse_resetcycle_tag(self) -> ast_nodes.ResetCycleTag:
         """Parse {% resetcycle %} or {% resetcycle name %}."""
         self.expect(TokenType.RESETCYCLE)
 
@@ -888,15 +900,15 @@ class Parser:
             cycle_name = self.advance().value
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return ResetCycleTag(cycle_name=cycle_name)
+        return ast_nodes.ResetCycleTag(cycle_name=cycle_name)
 
-    def parse_debug_tag(self) -> DebugTag:
+    def parse_debug_tag(self) -> ast_nodes.DebugTag:
         """Parse {% debug %}."""
         self.expect(TokenType.DEBUG)
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return DebugTag()
+        return ast_nodes.DebugTag()
 
-    def parse_lorem_tag(self) -> LoremTag:
+    def parse_lorem_tag(self) -> ast_nodes.LoremTag:
         """Parse {% lorem [count] [method] [random] %}."""
         self.expect(TokenType.LOREM)
 
@@ -920,9 +932,9 @@ class Parser:
                 self.advance()
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return LoremTag(count=count, method=method, random=random)
+        return ast_nodes.LoremTag(count=count, method=method, random=random)
 
-    def parse_regroup_tag(self) -> RegroupTag:
+    def parse_regroup_tag(self) -> ast_nodes.RegroupTag:
         """Parse {% regroup list by attribute as var %}."""
         self.expect(TokenType.REGROUP)
 
@@ -950,9 +962,11 @@ class Parser:
         var_name = self.expect(TokenType.IDENTIFIER).value
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return RegroupTag(list_expr=list_expr, attribute=attribute, var_name=var_name)
+        return ast_nodes.RegroupTag(
+            list_expr=list_expr, attribute=attribute, var_name=var_name
+        )
 
-    def parse_querystring_tag(self) -> QueryStringTag:
+    def parse_querystring_tag(self) -> ast_nodes.QueryStringTag:
         """Parse {% querystring key=value key2=value2 %}."""
         self.expect(TokenType.QUERYSTRING)
 
@@ -984,14 +998,13 @@ class Parser:
                 break
 
         self.expect(TokenType.TEMPLATE_TAG_END)
-        return QueryStringTag(updates=updates)
+        return ast_nodes.QueryStringTag(updates=updates)
 
     def parse_single_tag(self):
         """
         Parse arbitrary single tags like {% url 'name' %}, {% static 'path' %}, etc.
         Collects everything between the tag name and %} as raw content.
         """
-        from rdtl.ast_nodes import SingleTag
 
         # Get tag name
         tag_name_token = self.expect(TokenType.IDENTIFIER)
@@ -1009,14 +1022,13 @@ class Parser:
         self.expect(TokenType.TEMPLATE_TAG_END)
 
         raw_content = " ".join(content_parts).strip()
-        return SingleTag(tag_name=tag_name, raw_content=raw_content)
+        return ast_nodes.SingleTag(tag_name=tag_name, raw_content=raw_content)
 
     def parse_generic_block_tag(self):
         """
         Parse generic/custom block tags like {% myblock args %}...{% endmyblock %}.
         Used for auto-discovered block tags.
         """
-        from rdtl.ast_nodes import GenericBlockTag
 
         # Get tag name
         tag_name_token = self.expect(TokenType.IDENTIFIER)
@@ -1053,9 +1065,11 @@ class Parser:
             if child:
                 children.append(child)
 
-        return GenericBlockTag(tag_name=tag_name, raw_args=raw_args, children=children)
+        return ast_nodes.GenericBlockTag(
+            tag_name=tag_name, raw_args=raw_args, children=children
+        )
 
-    def parse_comment_block(self) -> CommentBlock:
+    def parse_comment_block(self) -> ast_nodes.CommentBlock:
         """Parse {% comment %}...{% endcomment %}."""
         self.expect(TokenType.COMMENT)
         self.expect(TokenType.TEMPLATE_TAG_END)
@@ -1068,9 +1082,9 @@ class Parser:
         self.expect(TokenType.ENDCOMMENT)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return CommentBlock(children=children)
+        return ast_nodes.CommentBlock(children=children)
 
-    def parse_ifchanged_block(self) -> IfChangedBlock:
+    def parse_ifchanged_block(self) -> ast_nodes.IfChangedBlock:
         """Parse {% ifchanged var1 var2 %}...{% endifchanged %}."""
         self.expect(TokenType.IFCHANGED)
 
@@ -1092,9 +1106,11 @@ class Parser:
         self.expect(TokenType.ENDIFCHANGED)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return IfChangedBlock(watch_expressions=watch_expressions, children=children)
+        return ast_nodes.IfChangedBlock(
+            watch_expressions=watch_expressions, children=children
+        )
 
-    def parse_filter_block(self) -> FilterBlock:
+    def parse_filter_block(self) -> ast_nodes.FilterBlock:
         """Parse {% filter name %}...{% endfilter %}."""
         self.expect(TokenType.FILTER)
 
@@ -1111,9 +1127,9 @@ class Parser:
         self.expect(TokenType.ENDFILTER)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return FilterBlock(filter_name=filter_name, children=children)
+        return ast_nodes.FilterBlock(filter_name=filter_name, children=children)
 
-    def parse_spaceless_block(self) -> SpacelessBlock:
+    def parse_spaceless_block(self) -> ast_nodes.SpacelessBlock:
         """Parse {% spaceless %}...{% endspaceless %}."""
         self.expect(TokenType.SPACELESS)
         self.expect(TokenType.TEMPLATE_TAG_END)
@@ -1126,9 +1142,9 @@ class Parser:
         self.expect(TokenType.ENDSPACELESS)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return SpacelessBlock(children=children)
+        return ast_nodes.SpacelessBlock(children=children)
 
-    def parse_verbatim_block(self) -> VerbatimBlock:
+    def parse_verbatim_block(self) -> ast_nodes.VerbatimBlock:
         """Parse {% verbatim %}...{% endverbatim %}."""
         self.expect(TokenType.VERBATIM)
         self.expect(TokenType.TEMPLATE_TAG_END)
@@ -1152,9 +1168,9 @@ class Parser:
             content_parts.append(token.value)
 
         content = "".join(content_parts)
-        return VerbatimBlock(content=content)
+        return ast_nodes.VerbatimBlock(content=content)
 
-    def parse_autoescape_block(self) -> AutoescapeBlock:
+    def parse_autoescape_block(self) -> ast_nodes.AutoescapeBlock:
         """Parse {% autoescape on/off %}...{% endautoescape %}."""
         self.expect(TokenType.AUTOESCAPE)
 
@@ -1177,9 +1193,9 @@ class Parser:
         self.expect(TokenType.ENDAUTOESCAPE)
         self.expect(TokenType.TEMPLATE_TAG_END)
 
-        return AutoescapeBlock(mode=mode, children=children)
+        return ast_nodes.AutoescapeBlock(mode=mode, children=children)
 
-    def parse_block_body(self, end_tokens: list[TokenType]) -> list[ASTNode]:
+    def parse_block_body(self, end_tokens: list[TokenType]) -> list[ast_nodes.ASTNode]:
         """Parse the body of a block until we hit an end token."""
         children = []
 
@@ -1200,11 +1216,11 @@ class Parser:
     # Condition parsing (for if/elif)
     # ========================================================================
 
-    def parse_condition(self) -> Condition:
+    def parse_condition(self) -> ast_nodes.Condition:
         """Parse a boolean condition."""
         return self.parse_or_condition()
 
-    def parse_or_condition(self) -> Condition:
+    def parse_or_condition(self) -> ast_nodes.Condition:
         """Parse OR conditions."""
         left = self.parse_and_condition()
 
@@ -1213,11 +1229,11 @@ class Parser:
             while self.match(TokenType.OR):
                 self.advance()
                 operands.append(self.parse_and_condition())
-            return BooleanOp(operator="or", operands=operands)
+            return ast_nodes.BooleanOp(operator="or", operands=operands)
 
         return left
 
-    def parse_and_condition(self) -> Condition:
+    def parse_and_condition(self) -> ast_nodes.Condition:
         """Parse AND conditions."""
         left = self.parse_not_condition()
 
@@ -1226,20 +1242,20 @@ class Parser:
             while self.match(TokenType.AND):
                 self.advance()
                 operands.append(self.parse_not_condition())
-            return BooleanOp(operator="and", operands=operands)
+            return ast_nodes.BooleanOp(operator="and", operands=operands)
 
         return left
 
-    def parse_not_condition(self) -> Condition:
+    def parse_not_condition(self) -> ast_nodes.Condition:
         """Parse NOT conditions."""
         if self.match(TokenType.NOT):
             self.advance()
             expr = self.parse_primary_condition()
-            return SimpleCondition(expression=expr, negated=True)
+            return ast_nodes.SimpleCondition(expression=expr, negated=True)
 
         return self.parse_primary_condition()
 
-    def parse_primary_condition(self) -> Condition:
+    def parse_primary_condition(self) -> ast_nodes.Condition:
         """
         Parse primary condition (comparison or simple expression).
 
@@ -1269,22 +1285,24 @@ class Parser:
                 TokenType.GE: ">=",
             }
 
-            return Comparison(left=left, operator=op_map[op_token.type], right=right)
+            return ast_nodes.Comparison(
+                left=left, operator=op_map[op_token.type], right=right
+            )
 
         # Check for 'in' operator
         if self.match(TokenType.IN):
             self.advance()
             right = self.parse_expression_with_filters()
-            return Comparison(left=left, operator="in", right=right)
+            return ast_nodes.Comparison(left=left, operator="in", right=right)
 
         # Simple expression (truthy check)
-        return SimpleCondition(expression=left, negated=False)
+        return ast_nodes.SimpleCondition(expression=left, negated=False)
 
     # ========================================================================
     # Comment parsing
     # ========================================================================
 
-    def parse_comment(self) -> Comment:
+    def parse_comment(self) -> ast_nodes.Comment:
         """Parse {# comment #}."""
         self.expect(TokenType.TEMPLATE_COMMENT_START)
 
@@ -1295,10 +1313,10 @@ class Parser:
 
         self.expect(TokenType.TEMPLATE_COMMENT_END)
 
-        return Comment(content=content)
+        return ast_nodes.Comment(content=content)
 
 
-def parse(content: str) -> Document:
+def parse(content: str) -> ast_nodes.Document:
     """
     Convenience function to lex and parse a template.
 
@@ -1307,8 +1325,6 @@ def parse(content: str) -> Document:
     2. Parse with discovered block tags
     """
     # Pass 1: Discover block tags
-    import re
-
     discovered_blocks = set()
     pattern = re.compile(r"\{%\s*end(\w+)")
     for match in pattern.finditer(content):
@@ -1339,5 +1355,5 @@ if __name__ == "__main__":
     """
 
     ast = parse(template)
-    printer = ASTPrinter()
+    printer = ast_nodes.ASTPrinter()
     printer.visit(ast)

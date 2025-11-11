@@ -4,7 +4,7 @@ Test suite for the parser.
 
 import unittest
 
-from rdtl.ast_nodes import *
+from rdtl import ast_nodes
 from rdtl.parser import parse
 
 
@@ -16,16 +16,16 @@ class TestParser(unittest.TestCase):
         template = "<div>Hello World</div>"
         ast = parse(template)
 
-        self.assertIsInstance(ast, Document)
+        self.assertIsInstance(ast, ast_nodes.Document)
         self.assertEqual(len(ast.children), 1)
 
         div = ast.children[0]
-        self.assertIsInstance(div, HTMLElement)
+        self.assertIsInstance(div, ast_nodes.HTMLElement)
         self.assertEqual(div.tag_name, "div")
         self.assertEqual(len(div.children), 1)
 
         text = div.children[0]
-        self.assertIsInstance(text, TextNode)
+        self.assertIsInstance(text, ast_nodes.TextNode)
         self.assertEqual(text.content, "Hello World")
 
     def test_html_with_attributes(self):
@@ -54,7 +54,7 @@ class TestParser(unittest.TestCase):
         # Navigate the tree
         div = None
         for child in ast.children:
-            if isinstance(child, HTMLElement):
+            if isinstance(child, ast_nodes.HTMLElement):
                 div = child
                 break
 
@@ -64,7 +64,7 @@ class TestParser(unittest.TestCase):
         # Find the p tag
         p = None
         for child in div.children:
-            if isinstance(child, HTMLElement):
+            if isinstance(child, ast_nodes.HTMLElement):
                 p = child
                 break
 
@@ -74,7 +74,7 @@ class TestParser(unittest.TestCase):
         # Find the span tag
         span = None
         for child in p.children:
-            if isinstance(child, HTMLElement):
+            if isinstance(child, ast_nodes.HTMLElement):
                 span = child
                 break
 
@@ -87,7 +87,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         img = ast.children[0]
-        self.assertIsInstance(img, VoidElement)
+        self.assertIsInstance(img, ast_nodes.VoidElement)
         self.assertEqual(img.tag_name, "img")
         self.assertEqual(len(img.attributes), 2)
 
@@ -99,7 +99,7 @@ class TestParser(unittest.TestCase):
         p = ast.children[0]
         var = p.children[0]
 
-        self.assertIsInstance(var, Variable)
+        self.assertIsInstance(var, ast_nodes.Variable)
         self.assertEqual(var.expression.base, "user")
         self.assertEqual(len(var.filters), 0)
 
@@ -109,7 +109,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         var = ast.children[0]
-        self.assertIsInstance(var, Variable)
+        self.assertIsInstance(var, ast_nodes.Variable)
         self.assertEqual(var.expression.base, "user")
         self.assertEqual(len(var.expression.lookups), 1)
         self.assertEqual(var.expression.lookups[0].type, "attribute")
@@ -146,19 +146,19 @@ class TestParser(unittest.TestCase):
 
         if_block = None
         for child in ast.children:
-            if isinstance(child, IfBlock):
+            if isinstance(child, ast_nodes.IfBlock):
                 if_block = child
                 break
 
         self.assertIsNotNone(if_block)
-        self.assertIsInstance(if_block.if_condition, SimpleCondition)
+        self.assertIsInstance(if_block.if_condition, ast_nodes.SimpleCondition)
         self.assertEqual(if_block.if_condition.expression.base, "user")
         self.assertIsNone(if_block.else_children)
 
         # Check if body
         p = None
         for child in if_block.if_children:
-            if isinstance(child, HTMLElement):
+            if isinstance(child, ast_nodes.HTMLElement):
                 p = child
                 break
 
@@ -178,7 +178,7 @@ class TestParser(unittest.TestCase):
 
         if_block = None
         for child in ast.children:
-            if isinstance(child, IfBlock):
+            if isinstance(child, ast_nodes.IfBlock):
                 if_block = child
                 break
 
@@ -200,7 +200,7 @@ class TestParser(unittest.TestCase):
 
         if_block = None
         for child in ast.children:
-            if isinstance(child, IfBlock):
+            if isinstance(child, ast_nodes.IfBlock):
                 if_block = child
                 break
 
@@ -210,7 +210,7 @@ class TestParser(unittest.TestCase):
 
         # Check elif condition
         elif_cond, elif_children = if_block.elif_branches[0]
-        self.assertIsInstance(elif_cond, Comparison)
+        self.assertIsInstance(elif_cond, ast_nodes.Comparison)
 
     def test_for_loop(self):
         """Test for loop."""
@@ -223,7 +223,7 @@ class TestParser(unittest.TestCase):
 
         for_block = None
         for child in ast.children:
-            if isinstance(child, ForBlock):
+            if isinstance(child, ast_nodes.ForBlock):
                 for_block = child
                 break
 
@@ -245,7 +245,7 @@ class TestParser(unittest.TestCase):
 
         for_block = None
         for child in ast.children:
-            if isinstance(child, ForBlock):
+            if isinstance(child, ast_nodes.ForBlock):
                 for_block = child
                 break
 
@@ -263,7 +263,7 @@ class TestParser(unittest.TestCase):
 
         block = None
         for child in ast.children:
-            if isinstance(child, BlockTag):
+            if isinstance(child, ast_nodes.BlockTag):
                 block = child
                 break
 
@@ -281,7 +281,7 @@ class TestParser(unittest.TestCase):
 
         with_block = None
         for child in ast.children:
-            if isinstance(child, WithBlock):
+            if isinstance(child, ast_nodes.WithBlock):
                 with_block = child
                 break
 
@@ -295,7 +295,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         include = ast.children[0]
-        self.assertIsInstance(include, IncludeTag)
+        self.assertIsInstance(include, ast_nodes.IncludeTag)
         self.assertEqual(include.template_name, "header.html")
 
     def test_extends_tag(self):
@@ -304,7 +304,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         extends = ast.children[0]
-        self.assertIsInstance(extends, ExtendsTag)
+        self.assertIsInstance(extends, ast_nodes.ExtendsTag)
         self.assertEqual(extends.parent_template, "base.html")
 
     def test_load_tag(self):
@@ -313,7 +313,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         load = ast.children[0]
-        self.assertIsInstance(load, LoadTag)
+        self.assertIsInstance(load, ast_nodes.LoadTag)
         self.assertEqual(load.libraries, ["static"])
 
     def test_csrf_token_tag(self):
@@ -322,7 +322,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         csrf = ast.children[0]
-        self.assertIsInstance(csrf, CsrfTokenTag)
+        self.assertIsInstance(csrf, ast_nodes.CsrfTokenTag)
 
     def test_comment(self):
         """Test template comments."""
@@ -330,7 +330,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         comment = ast.children[0]
-        self.assertIsInstance(comment, Comment)
+        self.assertIsInstance(comment, ast_nodes.Comment)
         self.assertEqual(comment.content, " This is a comment ")
 
     def test_complex_nested_structure(self):
@@ -361,7 +361,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         # Should parse without errors
-        self.assertIsInstance(ast, Document)
+        self.assertIsInstance(ast, ast_nodes.Document)
         self.assertTrue(len(ast.children) > 0)
 
     def test_comparison_operators(self):
@@ -378,7 +378,7 @@ class TestParser(unittest.TestCase):
         for template, op in templates:
             ast = parse(template)
             if_block = ast.children[0]
-            self.assertIsInstance(if_block.if_condition, Comparison)
+            self.assertIsInstance(if_block.if_condition, ast_nodes.Comparison)
             self.assertEqual(if_block.if_condition.operator, op)
 
     def test_boolean_operators(self):
@@ -388,7 +388,7 @@ class TestParser(unittest.TestCase):
 
         if_block = ast.children[0]
         # Should parse to: (x and y) or z
-        self.assertIsInstance(if_block.if_condition, BooleanOp)
+        self.assertIsInstance(if_block.if_condition, ast_nodes.BooleanOp)
 
     def test_not_operator(self):
         """Test not operator."""
@@ -396,7 +396,7 @@ class TestParser(unittest.TestCase):
         ast = parse(template)
 
         if_block = ast.children[0]
-        self.assertIsInstance(if_block.if_condition, SimpleCondition)
+        self.assertIsInstance(if_block.if_condition, ast_nodes.SimpleCondition)
         self.assertTrue(if_block.if_condition.negated)
 
     def test_multiple_filters(self):
