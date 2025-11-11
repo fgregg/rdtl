@@ -1,0 +1,348 @@
+(* Restricted Django Template Language - Context-Free Grammar *)
+(* EBNF Notation *)
+
+(* ========================================================================
+   RDTL - Django 5.2 Built-in Tags and Filters Support
+   ========================================================================
+
+   This grammar now includes comprehensive support for Django 5.2 built-in
+   template tags and filters while maintaining context-free properties.
+
+   FEATURES:
+   - HTML: DOCTYPE, HTML comments, CDATA sections
+   - Dynamic Attribute Names: Full support for template syntax in attribute names
+     * Simple: {{ attr }}="value"
+     * Mixed: data-{{ id }}-item="value"
+     * Framework support: hx-{{ action }}, x-{{ directive }}, data-*
+     * Independent quote rules for name/value templates
+   - Django Block Tags: comment, ifchanged, filter, spaceless, verbatim, autoescape
+   - Django Single Tags: extends, include, load (multiple libs), url, static,
+                         trans, cycle, resetcycle, debug, lorem, regroup, querystring
+   - Enhanced Tags:
+     * url with args/kwargs
+     * static with 'as'
+     * include with 'with' context variables
+     * load with multiple libraries
+     * for with tuple unpacking
+   - Filters in Conditions: {% if field|length > 1 %} now supported
+   - Raw Content Tags: trans/blocktrans support emojis and special characters
+   - Filter Validation: Optional validation against 58 Django built-in filters
+   - Two-Phase Tag Discovery:
+     * Phase 1: Block tags discovered by scanning for {% endX %}
+     * Phase 2: Any non-block tag accepted as simple tag
+     * Enables arbitrary custom tags while maintaining CFG
+
+   All features maintain CFG properties through careful grammar design.
+   ======================================================================== *)
+
+(* Top Level *)
+document = { element } ;
+
+(* Elements can be HTML, template constructs, text, or variables *)
+element = html_element
+        | html_comment
+        | doctype
+        | cdata
+        | template_block
+        | template_single_tag
+        | template_variable
+        | text_node ;
+
+(* HTML Elements *)
+html_element = void_element | paired_element ;
+
+void_element = "<", tag_name, { attribute }, [ "/" ], ">" ;
+
+paired_element = open_tag, { element }, close_tag ;
+
+open_tag = "<", tag_name, { attribute }, ">" ;
+
+close_tag = "</", tag_name, ">" ;
+
+tag_name = identifier ;
+
+(* HTML Special Elements *)
+doctype = "<!DOCTYPE", { ? doctype declaration chars ? }, ">" ;
+
+html_comment = "<!--", { ? any char except "-->" ? }, "-->" ;
+
+cdata = "<![CDATA[", { ? any char ? }, "]]>" ;
+
+(* Attributes - Template syntax IS allowed in both names and values *)
+attribute = attr_name, [ "=", attr_value ] ;
+
+(* Attribute Names - Static or Dynamic *)
+attr_name = static_attr_name | dynamic_attr_name ;
+
+(* Static attribute names - supports HTML5/framework attributes *)
+static_attr_name = ( letter | "_" | "@" | ":" ), { letter | digit | "_" | "-" | ":" | "@" | "." } ;
+(* Supports: data-*, aria-*, hx-*, x-on:click, @click, :bind, v-model.trim, etc. *)
+
+(* Dynamic attribute names - mixed static and template parts *)
+dynamic_attr_name = { attr_name_part }+ ;
+attr_name_part = static_name_part | template_in_attr_name ;
+static_name_part = ( letter | digit | "_" | "-" | ":" | "@" | "." )+ ;
+template_in_attr_name = template_variable | template_tag ;
+
+(* Quote Rules:
+   - Attribute NAME templates: No quote restrictions (independent)
+   - Attribute VALUE templates: Must follow opposite-quote rule
+   Examples:
+     ✓ {{ "attr" }}="value"           (quotes in name are independent)
+     ✓ data-{{ id }}="{{ 'val' }}"    (single quotes in value template OK)
+     ✗ data-{{ id }}="{{ "val" }}"    (double quotes in value template NOT OK)
+*)
+
+attr_value = quoted_string_with_templates | unquoted_value ;
+
+(* Quoted strings can contain templates with opposite quote type rule *)
+quoted_string_with_templates =
+    ( '"', { string_part_double | template_in_attr_single }, '"' )
+  | ( "'", { string_part_single | template_in_attr_double }, "'" ) ;
+
+(* String parts (no template syntax) *)
+string_part_double = { safe_char - ( '"' | "{" ) } ;
+string_part_single = { safe_char - ( "'" | "{" ) } ;
+
+(* Templates in attributes - can only use opposite quote type *)
+template_in_attr_single =
+    template_var_with_quotes_single
+  | template_tag_with_quotes_single ;
+
+template_in_attr_double =
+    template_var_with_quotes_double
+  | template_tag_with_quotes_double ;
+
+(* Template expressions can only contain strings with allowed quote type *)
+template_var_with_quotes_single = "{{", expr_with_single_quotes, "}}" ;
+template_tag_with_quotes_single = "{%", tag_expr_with_single_quotes, "%}" ;
+template_var_with_quotes_double = "{{", expr_with_double_quotes, "}}" ;
+template_tag_with_quotes_double = "{%", tag_expr_with_double_quotes, "%}" ;
+
+(* Expressions that can only use specific quote types *)
+expr_with_single_quotes = (* identifiers, operators, single-quoted strings only *) ;
+expr_with_double_quotes = (* identifiers, operators, double-quoted strings only *) ;
+tag_expr_with_single_quotes = (* template syntax with single quotes only *) ;
+tag_expr_with_double_quotes = (* template syntax with double quotes only *) ;
+
+unquoted_value = { safe_char - ( whitespace | ">" ) } ;
+
+(* Template Blocks - must be properly nested *)
+template_block = if_block
+               | for_block
+               | block_tag
+               | comment_block
+               | ifchanged_block
+               | filter_block
+               | spaceless_block
+               | verbatim_block
+               | autoescape_block
+               | blocktrans_block
+               | custom_block ;
+
+(* If/Elif/Else *)
+if_block = if_open, { element }, { elif_part }, [ else_part ], if_close ;
+
+if_open = "{%", "if", condition, "%}" ;
+
+elif_part = elif_open, { element } ;
+
+elif_open = "{%", "elif", condition, "%}" ;
+
+else_part = else_open, { element } ;
+
+else_open = "{%", "else", "%}" ;
+
+if_close = "{%", "endif", "%}" ;
+
+(* For Loop - supports tuple unpacking *)
+for_block = for_open, { element }, [ empty_part ], for_close ;
+
+for_open = "{%", "for", loop_vars, "in", expression, "%}" ;
+
+loop_vars = identifier, { ",", identifier } ;
+
+empty_part = empty_open, { element } ;
+
+empty_open = "{%", "empty", "%}" ;
+
+for_close = "{%", "endfor", "%}" ;
+
+(* Block Definition *)
+block_tag = block_open, { element }, block_close ;
+
+block_open = "{%", "block", identifier, "%}" ;
+
+block_close = "{%", "endblock", [ identifier ], "%}" ;
+
+(* Django Comment Block *)
+comment_block = "{%", "comment", "%}", { ? any content ? }, "{%", "endcomment", "%}" ;
+
+(* Django IfChanged Block *)
+ifchanged_block = "{%", "ifchanged", [ expression ], "%}", { element }, "{%", "endifchanged", "%}" ;
+
+(* Django Filter Block *)
+filter_block = "{%", "filter", filter_chain, "%}", { element }, "{%", "endfilter", "%}" ;
+
+(* Django Spaceless Block *)
+spaceless_block = "{%", "spaceless", "%}", { element }, "{%", "endspaceless", "%}" ;
+
+(* Django Verbatim Block *)
+verbatim_block = "{%", "verbatim", "%}", { ? literal content ? }, "{%", "endverbatim", "%}" ;
+
+(* Django Autoescape Block *)
+autoescape_block = "{%", "autoescape", ( "on" | "off" ), "%}", { element }, "{%", "endautoescape", "%}" ;
+
+(* Django BlockTrans - translation with interpolation *)
+(*
+   BlockTrans tags contain mixed content: text, variables, and HTML.
+   Content is collected as raw content with template variables preserved.
+   Example: {% blocktrans %}Hello {{ name }}!{% endblocktrans %}
+*)
+blocktrans_block = "{%", "blocktrans", [ blocktrans_args ], "%}", { ? mixed content ? }, "{%", "endblocktrans", "%}" ;
+
+blocktrans_args = { identifier, "=", expression } ;
+
+(* Custom Block Tags - discovered via two-pass parsing *)
+custom_block = custom_block_open, { element }, custom_block_close ;
+
+custom_block_open = "{%", custom_tag_name, { argument }, "%}" ;
+
+custom_block_close = "{%", "end", custom_tag_name, "%}" ;
+
+custom_tag_name = identifier (* discovered in pass 1 *) ;
+
+(* Django Single Tags - Two-Phase Approach *)
+(*
+   Phase 1: Block tags discovered by scanning for {% endX %}
+   Phase 2: Any tag NOT discovered as a block tag is a valid simple tag
+
+   This allows arbitrary custom tags while maintaining CFG properties.
+*)
+template_single_tag = known_single_tag | custom_single_tag ;
+
+known_single_tag = extends_tag
+                 | include_tag
+                 | load_tag
+                 | url_tag
+                 | static_tag
+                 | trans_tag
+                 | cycle_tag
+                 | resetcycle_tag
+                 | debug_tag
+                 | lorem_tag
+                 | regroup_tag
+                 | querystring_tag ;
+
+(* Custom/Unknown single tags - collected as raw content *)
+custom_single_tag = "{%", identifier, raw_tag_content, "%}" ;
+
+raw_tag_content = { ? any character except %} ? } ;
+
+(* Extends *)
+extends_tag = "{%", "extends", quoted_string, "%}" ;
+
+(* Include - with optional context variables *)
+include_tag = "{%", "include", quoted_string, [ "with", context_assignments ], "%}" ;
+
+context_assignments = identifier, "=", expression, { identifier, "=", expression } ;
+
+(* Load - supports multiple libraries *)
+load_tag = "{%", "load", identifier, { identifier }, "%}" ;
+
+(* URL - with args, kwargs, and 'as' variable *)
+url_tag = "{%", "url", quoted_string, { url_arg }, [ "as", identifier ], "%}" ;
+
+url_arg = expression | ( identifier, "=", expression ) ;
+
+(* Static - with optional 'as' variable *)
+static_tag = "{%", "static", quoted_string, [ "as", identifier ], "%}" ;
+
+(* Translation - raw content not parsed as expressions *)
+(*
+   Trans tags contain raw text that may include emojis, punctuation, etc.
+   Content is collected as-is without expression parsing.
+   Example: {% trans ✓ Thank you! %}
+*)
+trans_tag = "{%", "trans", raw_tag_content, "%}" ;
+
+(* Cycle - with optional 'as' naming *)
+cycle_tag = "{%", "cycle", value, { value }, [ "as", identifier ], "%}" ;
+
+(* Reset Cycle *)
+resetcycle_tag = "{%", "resetcycle", [ identifier ], "%}" ;
+
+(* Debug *)
+debug_tag = "{%", "debug", "%}" ;
+
+(* Lorem - placeholder text generator *)
+lorem_tag = "{%", "lorem", [ number ], [ ( "w" | "p" | "b" ) ], [ "random" ], "%}" ;
+
+(* Regroup - group list by attribute *)
+regroup_tag = "{%", "regroup", expression, "by", identifier, "as", identifier, "%}" ;
+
+(* QueryString - URL query string manipulation *)
+querystring_tag = "{%", "querystring", { identifier, "=", expression }, "%}" ;
+
+(* Template Variables *)
+template_variable = "{{", expression, [ "|", filter_chain ], "}}" ;
+
+filter_chain = filter, { "|", filter } ;
+
+filter = identifier, [ ":", filter_arg, { ",", filter_arg } ] ;
+
+filter_arg = quoted_string | number | identifier ;
+
+(* Django 5.2 supports 58 built-in filters including:
+   String: add, addslashes, capfirst, center, cut, lower, upper, slugify, title,
+           truncatechars, truncatewords, wordcount, wordwrap
+   Formatting: date, time, timesince, timeuntil, floatformat, filesizeformat,
+               linebreaks, linebreaksbr, linenumbers
+   List: dictsort, first, join, last, length, length_is, random, slice, make_list
+   Logic: default, default_if_none, divisibleby, pluralize, yesno
+   HTML: escape, escapejs, force_escape, safe, safeseq, striptags
+   URL: iriencode, urlencode, urlize, urlizetrunc
+   Utility: get_digit, json_script, pprint
+   ...and more
+*)
+
+(* Expressions and Conditions *)
+(* Django only supports dot notation: user.name, items.0 *)
+(* Bracket notation like items[0] is NOT supported in Django templates *)
+expression = identifier, { ".", identifier } ;
+
+(* Expressions can have filters applied in conditions *)
+expression_or_filtered = expression, [ "|", filter_chain ] ;
+
+value = quoted_string | number | identifier ;
+
+argument = value | ( identifier, "=", value ) ;
+
+condition = simple_condition, { ( "and" | "or" ), simple_condition } ;
+
+simple_condition = [ "not" ], ( comparison | expression_or_filtered ) ;
+
+comparison = expression_or_filtered, comparator, expression_or_filtered ;
+
+comparator = "==" | "!=" | "<" | ">" | "<=" | ">=" | "in" | "not", "in" ;
+
+(* Text Content *)
+text_node = { safe_char - ( "<" | "{" ) } ;
+
+(* Lexical Elements *)
+identifier = letter, { letter | digit | "_" } ;
+
+number = [ "-" ], digit, { digit }, [ ".", digit, { digit } ] ;
+
+letter = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m"
+       | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z"
+       | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M"
+       | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" ;
+
+digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+whitespace = " " | "\t" | "\n" | "\r" ;
+
+safe_char = ? any character ? ;
+
+any_char = ? any character ? ;

@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rdtl"
+version = "0.1.0"
+description = "Restricted Django Template Language - A safer, context-free subset of Django templates"
+readme = "README.md"
+authors = [
+    {name = "Forest Gregg"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+keywords = ["django", "template", "parser", "formatter", "static-analysis"]
+
+# Runtime dependencies
+dependencies = [
+    "click>=8.0",  # CLI framework
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "hypothesis>=6.0",
+    "lark-parser>=0.12",
+    "django>=5.0",  # For reference implementation testing
+]
+
+[project.scripts]
+rdtl-fmt = "rdtl.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/forestgregg/restricted_django_template"
+Documentation = "https://github.com/forestgregg/restricted_django_template/blob/main/README.md"
+Repository = "https://github.com/forestgregg/restricted_django_template"
+Issues = "https://github.com/forestgregg/restricted_django_template/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rdtl = ["*.ebnf", "*.lark"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=rdtl",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+
+[tool.coverage.run]
+source = ["src/rdtl"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]

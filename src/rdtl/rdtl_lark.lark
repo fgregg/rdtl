@@ -1,0 +1,113 @@
+// Lark grammar for RDTL (subset for verification)
+// This is a simplified version focused on core features
+
+?start: document
+
+document: element*
+
+?element: html_element
+        | template_variable
+        | template_block
+        | template_single_tag
+        | TEXT
+
+// HTML Elements
+html_element: open_tag element* close_tag
+            | void_element
+
+open_tag: "<" TAG_NAME attribute* ">"
+close_tag: "</" TAG_NAME ">"
+void_element: "<" TAG_NAME attribute* "/>"
+
+attribute: ATTR_NAME ["=" attr_value]
+
+attr_value: QUOTED_STRING
+          | template_in_attr
+
+template_in_attr: "{{" expression "}}"
+                | "{%" RAW_TAG_CONTENT "%}"
+
+RAW_TAG_CONTENT: /[^%]+/
+
+// Template Variables
+template_variable: "{{" expression filter_chain? "}}"
+
+filter_chain: ("|" filter)+
+
+filter: IDENTIFIER [":" filter_arg ("," filter_arg)*]
+
+filter_arg: QUOTED_STRING | NUMBER | IDENTIFIER
+
+// Template Blocks
+template_block: if_block
+              | for_block
+
+if_block: if_open element* elif_part* else_part? if_close
+
+if_open: "{%" "if" condition "%}"
+elif_part: "{%" "elif" condition "%}" element*
+else_part: "{%" "else" "%}" element*
+if_close: "{%" "endif" "%}"
+
+for_block: for_open element* empty_part? for_close
+
+for_open: "{%" "for" loop_vars "in" expression "%}"
+loop_vars: IDENTIFIER ("," IDENTIFIER)*
+empty_part: "{%" "empty" "%}" element*
+for_close: "{%" "endfor" "%}"
+
+// Template Single Tags
+// Note: Custom blocks/tags require two-phase parsing (not expressible in pure CFG)
+// Note: In practice, any tag NOT matching a block tag is treated as simple
+template_single_tag: include_tag
+                   | trans_tag
+                   | known_simple_tag
+
+include_tag: "{%" "include" QUOTED_STRING ("with" context_assignment+)? "%}"
+
+context_assignment: IDENTIFIER "=" expression
+
+trans_tag: "{%" "trans" TRANS_CONTENT "%}"
+
+TRANS_CONTENT: /[^%]+/
+
+// Known simple tags that aren't ambiguous with custom blocks
+known_simple_tag: "{%" ("load" | "extends" | "url" | "static" | "cycle" | "debug") TAG_ARGS? "%}"
+
+TAG_ARGS: /[^%]+/
+
+// Expressions and Conditions
+// Django only supports dot notation: user.name, items.0
+// Bracket notation like items[0] is NOT supported
+// No spaces allowed around dots: "user . name" is invalid
+expression: IDENTIFIER LOOKUP*
+          | QUOTED_STRING
+          | NUMBER
+
+expression_or_filtered: expression filter_chain?
+
+condition: simple_condition (("and" | "or") simple_condition)*
+
+simple_condition: "not"? (comparison | expression_or_filtered)
+
+comparison: expression_or_filtered comparator expression_or_filtered
+
+comparator: "==" | "!=" | "<=" | ">=" | "<" | ">" | "in"
+
+// Lexer Rules
+TAG_NAME: /[a-zA-Z][a-zA-Z0-9]*/
+ATTR_NAME: /[a-zA-Z_@:][-a-zA-Z0-9_:@.]*/
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
+NUMBER: /-?\d+(\.\d+)?/
+QUOTED_STRING: /"[^"]*"/ | /'[^']*'/
+
+// Lookup - dot followed immediately by identifier or number (no spaces)
+LOOKUP: /\.[a-zA-Z_][a-zA-Z0-9_]*/  // .identifier
+      | /\.\d+/                      // .number (for list indices like items.0)
+
+// Text content
+TEXT: /[^<{]+/
+
+// Ignore whitespace in template tags
+%import common.WS
+%ignore WS
