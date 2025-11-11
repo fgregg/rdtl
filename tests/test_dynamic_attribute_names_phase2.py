@@ -35,7 +35,7 @@ def test_simple_variable_attribute_name():
     assert len(div.attributes) == 1
     assert div.attributes[0].name == "{{ attr_name }}"
     assert div.attributes[0].value == "value"
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print(f"✓ Dynamic attribute parsed: {div.attributes[0]}")
 
     # Format
@@ -75,7 +75,7 @@ def test_variable_with_filter():
     div = ast.children[0]
     assert len(div.attributes) == 1
     assert div.attributes[0].name == "{{ attr_name|safe }}"
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print("✓ Dynamic attribute with filter parsed correctly")
 
     print("\n✅ Variable with filter test passed!")
@@ -103,7 +103,7 @@ def test_template_tag_attribute_name():
     div = ast.children[0]
     assert len(div.attributes) == 1
     assert "{% if active %}" in div.attributes[0].name
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print("✓ Dynamic attribute with template tag parsed correctly")
 
     # Format
@@ -138,19 +138,19 @@ def test_multiple_attributes_mixed():
 
     # Static attributes
     assert div.attributes[0].name == "id"
-    assert div.attributes[0].is_dynamic_name == False
+    assert div.attributes[0].is_dynamic_name is False
 
     # Dynamic attribute
     assert div.attributes[1].name == "{{ dynamic_attr }}"
-    assert div.attributes[1].is_dynamic_name == True
+    assert div.attributes[1].is_dynamic_name
 
     # Static attribute
     assert div.attributes[2].name == "class"
-    assert div.attributes[2].is_dynamic_name == False
+    assert div.attributes[2].is_dynamic_name is False
 
     # Dynamic attribute
     assert div.attributes[3].name == "{{ another }}"
-    assert div.attributes[3].is_dynamic_name == True
+    assert div.attributes[3].is_dynamic_name
 
     print("✓ Mixed attributes parsed correctly:")
     for attr in div.attributes:
@@ -183,7 +183,7 @@ def test_boolean_dynamic_attribute():
     assert len(button.attributes) == 1
     assert button.attributes[0].name == "{{ attr_name }}"
     assert button.attributes[0].value is None  # Boolean attribute
-    assert button.attributes[0].is_dynamic_name == True
+    assert button.attributes[0].is_dynamic_name
     print("✓ Boolean dynamic attribute parsed correctly")
 
     print("\n✅ Boolean dynamic attribute test passed!")

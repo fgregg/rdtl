@@ -4,7 +4,7 @@ Template renderer for RDTL.
 Evaluates the AST and produces HTML output.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from rdtl.ast_nodes import *
 
@@ -14,10 +14,10 @@ class RenderContext:
     Rendering context holding variables and state.
     """
 
-    def __init__(self, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, context: dict[str, Any] | None = None):
         self.stack = [context or {}]
 
-    def push(self, new_context: Optional[Dict[str, Any]] = None):
+    def push(self, new_context: dict[str, Any] | None = None):
         """Push a new context frame."""
         self.stack.append(new_context or {})
 
@@ -48,7 +48,7 @@ class Renderer(ASTVisitor):
         output = renderer.render(ast)
     """
 
-    def __init__(self, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, context: dict[str, Any] | None = None):
         self.context = RenderContext(context)
         self.output = []
 
@@ -369,7 +369,7 @@ class Renderer(ASTVisitor):
         )
 
 
-def render(template: str, context: Optional[Dict[str, Any]] = None) -> str:
+def render(template: str, context: dict[str, Any] | None = None) -> str:
     """
     Convenience function to parse and render a template.
 
@@ -380,7 +380,7 @@ def render(template: str, context: Optional[Dict[str, Any]] = None) -> str:
     Returns:
         Rendered HTML string
     """
-    from parser import parse
+    from rdtl.parser import parse
 
     ast = parse(template)
     renderer = Renderer(context)

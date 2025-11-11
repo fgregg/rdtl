@@ -6,7 +6,6 @@ Converts template string into a stream of tokens.
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List, Optional
 
 
 class TokenType(Enum):
@@ -181,22 +180,22 @@ class Lexer:
         self.pos = 0
         self.line = 1
         self.column = 1
-        self.tokens: List[Token] = []
+        self.tokens: list[Token] = []
 
-    def current_char(self) -> Optional[str]:
+    def current_char(self) -> str | None:
         """Get current character without consuming it."""
         if self.pos >= len(self.content):
             return None
         return self.content[self.pos]
 
-    def peek(self, offset: int = 1) -> Optional[str]:
+    def peek(self, offset: int = 1) -> str | None:
         """Look ahead at character at current position + offset."""
         pos = self.pos + offset
         if pos >= len(self.content):
             return None
         return self.content[pos]
 
-    def advance(self) -> Optional[str]:
+    def advance(self) -> str | None:
         """Consume and return current character."""
         char = self.current_char()
         if char is None:
@@ -411,7 +410,7 @@ class Lexer:
         """Add a token to the token list."""
         self.tokens.append(Token(token_type, value, self.line, self.column))
 
-    def tokenize(self) -> List[Token]:
+    def tokenize(self) -> list[Token]:
         """Tokenize the entire template."""
         while self.pos < len(self.content):
             self.tokenize_text_mode()
@@ -614,8 +613,7 @@ class Lexer:
         """
         self.advance()  # Skip opening quote
 
-        # Determine which quote type is allowed inside templates
-        allowed_template_quote = "'" if opening_quote == '"' else '"'
+        # Store which quote type is forbidden inside templates
         forbidden_quote = opening_quote
 
         value_buffer = []
@@ -669,9 +667,10 @@ class Lexer:
 
             # Check for forbidden quote
             if char == forbidden_quote:
+                quote_type = "single" if forbidden_quote == '"' else "double"
                 raise SyntaxError(
                     f"Line {self.line}: Cannot use {forbidden_quote} quotes inside template-in-attribute. "
-                    f"Use {'single' if forbidden_quote == '\"' else 'double'} quotes instead."
+                    f"Use {quote_type} quotes instead."
                 )
 
             # Check for closing }}
@@ -694,9 +693,10 @@ class Lexer:
 
             # Check for forbidden quote
             if char == forbidden_quote:
+                quote_type = "single" if forbidden_quote == '"' else "double"
                 raise SyntaxError(
                     f"Line {self.line}: Cannot use {forbidden_quote} quotes inside template-in-attribute. "
-                    f"Use {'single' if forbidden_quote == '\"' else 'double'} quotes instead."
+                    f"Use {quote_type} quotes instead."
                 )
 
             # Check for closing %}
@@ -983,7 +983,7 @@ class Lexer:
             )
 
 
-def tokenize(content: str) -> List[Token]:
+def tokenize(content: str) -> list[Token]:
     """Convenience function to tokenize a template."""
     lexer = Lexer(content)
     return lexer.tokenize()

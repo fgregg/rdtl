@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invalid Template - Interleaved Nesting</title>
+</head>
+<body>
+    <!-- INVALID: Template block crosses HTML boundary -->
+    <div>
+        {% if condition %}
+    </div>
+    <div>
+        {% endif %}
+    </div>
+
+    <!-- INVALID: HTML element crosses template boundary -->
+    {% for item in items %}
+        <ul>
+    {% endfor %}
+            <li>Broken</li>
+        </ul>
+</body>
+</html>

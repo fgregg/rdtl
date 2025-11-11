@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags static i18n htmx_tags %}
+{% block title %}
+    {{ submission.page.title }}{% trans "Submission" %}
+     - CFFWU Organizing{% endblock title %}
+{% block extra_head %}
+    {% htmx_script %}
+    <script>
+    // Hide autocomplete results when clicking outside
+    document.addEventListener('click', function (event) {
+        const searchResults = document.getElementById('participant-search-results');
+        const searchInput = document.getElementById('participant-search');
+        if (searchResults && searchInput &&
+            !searchResults.contains(event.target) &&
+            event.target !== searchInput) {
+            searchResults.style.display = 'none';
+        }
+    });
+</script>
+{% endblock extra_head %}
+{% block content %}
+    <div class="container">
+        <div class="header-actions">
+            <h1>{{ submission.page.title }} {% trans "Submission" %}
+</h1>
+            <div>
+                <a href="{% url 'submission_list' submission.page.slug %}" class="back-link">← {% trans "Back to List" %}
+</a>
+            </div>
+        </div>
+        <div class="card">
+            <h2>{% trans "Submission Details" %}
+</h2>
+            {% if field_info %}
+                {#  Display form data when available (hydrated Django objects)  #}
+                {% for field in field_info %}
+                    <div class="detail-row">
+                        <div class="detail-label">{{ field.label }}:</div>
+                        {% include "organizing_formbuilding/partials/field_display.html" with field_name=field.name field_value=field.value field_type=field.field_type form=form %}
+                    </div>
+                {% endfor %}
+            {% endif %}
+            {#  Always show submitted_by and submission info  #}
+            <div class="detail-row">
+                <div class="detail-label">{% trans "Submitted By:" %}
+</div>
+                {% include "organizing_formbuilding/partials/field_display.html" with field_name=Literal('submitted_by') field_value=submission.action.submitted_by %}
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">{% trans "Submission Time:" %}
+</div>
+                <div class="detail-value">{{ submission.submit_time|date:'DATETIME_FORMAT' }}</div>
+            </div>
+            {% with owner=submission.action.location.ownerships.majority_owner %}
+                {% if owner %}
+                    <div class="detail-row">
+                        <div class="detail-label">{% trans "Location Owner:" %}
+</div>
+                        <div class="detail-value">{{ owner }}</div>
+                    </div>
+                {% endif %}
+            {% endwith %}
+            <div class="detail-row">
+                <div class="detail-label">{% trans "Form Type:" %}
+</div>
+                <div class="detail-value">{{ submission.page.title }}</div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

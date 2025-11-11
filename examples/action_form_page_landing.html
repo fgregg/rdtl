@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags static i18n %}
+{% block title %}
+    {% trans Thank you %}
+    
+     - {{ page.title }}{% endblock title %}
+{% block content %}
+    <div class="container" style="max-width: 800px;">
+        <div class="thank-you-message">
+            <h1>{% trans ✓ Thank you! %}
+
+</h1>
+            {{ page.thank_you_text|richtext }}<a href="/" class="btn btn-primary">{% trans Return to Home %}
+
+</a>
+        </div>
+    </div>
+{% endblock content %}

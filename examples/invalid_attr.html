@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invalid Template - Template in Attribute Name</title>
+</head>
+<body>
+    <!-- INVALID: Template in attribute name (not allowed) -->
+    <div data-{{ key }}="value">
+        Template syntax in attribute names is not allowed
+    </div>
+
+    <!-- INVALID: Same quote type in template within attribute -->
+    <!-- This would be caught by lexer, not validator -->
+    <!-- <div class="{% if x == "y" %}active{% endif %}"> -->
+</body>
+</html>

@@ -1,0 +1,17 @@
+{% load i18n %}
+{% if results %}
+    {% for item in results %}
+        <div class="autocomplete-item autocomplete-item-clickable" data-id="{{ item.id }}" data-text="{{ item }}" onclick="selectSingle({{ item.id }}, '{{ item|escapejs }}', '{{ widget_id }}')">
+            {{ item }}
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="autocomplete-no-results">{% trans No results found %}
+</div>
+{% endif %}
+{% if create_url %}
+    <div class="autocomplete-item autocomplete-create" data-action="create" hx-get="{% url create_url %}" hx-target="#{{ widget_id }}_inline_form" hx-swap="innerHTML" hx-vals="{"widget_id": "{{ widget_id }}"{% for key, value in search_params.items %}, "{{ key }}": "{{ value }}"{% endfor %}}" hx-on:click="openCreateForm('{{ widget_id }}', '{{ widget_id }}_display')">
+        {% trans + Create new %}
+
+    </div>
+{% endif %}

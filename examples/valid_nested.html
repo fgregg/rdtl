@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Valid Nested Template</title>
+    </head>
+    <body>
+        <!--      Valid: Proper nesting of template blocks and HTML      -->
+        <div>
+            {% if show_section %}
+                <section>
+                    <h2>{{ section_title }}</h2>
+                    {% for item in section_items %}
+                        <article>
+                            <h3>{{ item.title }}</h3>
+                            {% if item.has_content %}
+                                <div>
+                                    <p>{{ item.content }}</p>
+                                </div>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        </div>
+        <!--      Valid: Block tags properly nested      -->
+        {% block sidebar %}
+            <aside>
+                {% for widget in widgets %}
+                    <div>
+                    {{ widget.render }}
+                </div>
+                {% endfor %}
+            </aside>
+        {% endblock sidebar %}
+    </body>
+</html>

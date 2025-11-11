@@ -5,12 +5,11 @@ Pretty-prints templates with consistent indentation and spacing.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
-from rdtl.ast_nodes import *
+from rdtl.ast_nodes import *  # noqa: F403, F405
 
-# Note: Many visit methods use lazy imports for specific node types.
-# This is intentional to avoid circular imports and keep the visitor pattern clean.
+# Note: Star import is intentional - formatter needs access to all AST node types.
+# This keeps the visitor pattern clean and avoids verbose imports.
 
 
 @dataclass
@@ -52,7 +51,7 @@ class Formatter(ASTVisitor):
         formatted = formatter.format(ast)
     """
 
-    def __init__(self, options: Optional[FormatOptions] = None):
+    def __init__(self, options: FormatOptions | None = None):
         self.options = options or FormatOptions()
         self.output = []
         self.indent_level = 0
@@ -796,7 +795,7 @@ class Formatter(ASTVisitor):
         return str(condition)
 
 
-def format_template(template: str, options: Optional[FormatOptions] = None) -> str:
+def format_template(template: str, options: FormatOptions | None = None) -> str:
     """
     Format an RDTL template string.
 

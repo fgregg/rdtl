@@ -1,0 +1,32 @@
+{% load wagtailcore_tags i18n %}
+<div class="detail-value detail-value-editable" id="field-{{ field_name }}">
+    {% if field_value is not None %}
+    {% if 'Multiple' in field_type %}
+    {# Render multiple choice fields as lists #}
+    <ul>
+        {% for item in field_value %}
+        <li>{{ item }}</li>
+        {% endfor %}
+    </ul>
+    {% elif field_type == 'URLField' and field_value %}
+    {# Render URL fields as clickable links #}
+    <a href="{{ field_value }}" target="_blank" rel="noopener noreferrer">{{ field_value }}</a>
+    {% elif field_type == 'DateField' %}
+    {# Format date fields nicely #}
+    {{ field_value|date:"DATE_FORMAT" }}
+    {% elif field_type == 'DateTimeField' %}
+    {# Format datetime fields nicely #}
+    {{ field_value|date:"DATETIME_FORMAT" }}
+    {% else %}
+    {{ field_value }}
+    {% endif %}
+    {% else %}
+    <em>{% trans "Not set" %}</em>
+    {% endif %}
+    <span class="edit-icon"
+          hx-get="{% url 'submission_field_edit' submission.id field_name %}"
+          hx-target="#field-{{ field_name }}"
+          hx-swap="outerHTML"
+          style="cursor: pointer;"
+          title="{% trans "Click to edit" %}">✏️</span>
+</div>

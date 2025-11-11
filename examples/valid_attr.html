@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Valid Template - Templates in Attribute Values</title>
+    </head>
+    <body>
+        <!--  VALID: Template syntax in attribute value with opposite quote rule  -->
+        <div class="{% if is_active == 'yes' %}active{% endif %}">
+        Templates in attributes are allowed with opposite quotes!
+    </div>
+        <!--  VALID: Variable in attribute  -->
+        <img src="{{ user.avatar }}" alt="Avatar" />
+        <!--  VALID: Conditional attribute  -->
+        <button disabled="{% if not can_submit %}true{% endif %}">
+        Submit
+    </button>
+        <!--  VALID: Multiple templates in one attribute  -->
+        <div class="prefix {% if x == 'a' %}class-a{% endif %} {% if y == 'b' %}class-b{% endif %}">
+        Multiple templates
+    </div>
+        <!--  VALID: Template with comparison operators  -->
+        <div data-count="{% if items|length > 5 %}many{% else %}few{% endif %}">
+        Content
+    </div>
+        <!--  VALID: Single-quoted attribute with double quotes in template  -->
+        <div title="{% if user == "admin" %}Administrator{% endif %}">
+        User info
+    </div>
+    </body>
+</html>

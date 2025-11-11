@@ -1,0 +1,50 @@
+{% load i18n %}
+<script>
+// Update the autocomplete field with the newly created establishment
+const widgetId = '{{ widget_id }}';
+const establishmentId = '{{ establishment.id }}';
+const establishmentText = '{{ establishment|escapejs }}';
+
+// Set the hidden input value (ID)
+const hiddenInput = document.getElementById(widgetId);
+if (hiddenInput) {
+    hiddenInput.value = establishmentId;
+}
+
+// Set the display input value (text)
+const displayInput = document.getElementById(widgetId + '_display');
+if (displayInput) {
+    displayInput.value = establishmentText;
+}
+
+// Clear the inline form container
+const inlineForm = document.getElementById(widgetId + '_inline_form');
+if (inlineForm) {
+    inlineForm.innerHTML = '';
+}
+
+// Clear any autocomplete results
+const resultsDiv = document.getElementById(widgetId + '_results');
+if (resultsDiv) {
+    resultsDiv.innerHTML = '';
+}
+
+// Show a brief success message
+const successMessage = document.createElement('div');
+successMessage.innerHTML = '{% trans ✓ Location created successfully! %}
+
+';
+successMessage.className = 'success-message';
+
+const autocompleteContainer = document.getElementById(widgetId + '_display').closest('.autocomplete-container');
+if (autocompleteContainer) {
+    autocompleteContainer.appendChild(successMessage);
+    
+    // Remove success message after 3 seconds
+    setTimeout(() => {
+        if (successMessage.parentNode) {
+            successMessage.parentNode.removeChild(successMessage);
+        }
+    }, 3000);
+}
+</script>

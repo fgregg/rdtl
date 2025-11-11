@@ -1,0 +1,47 @@
+{% load i18n %}
+<script>
+    
+// Update the multiselect widget with the newly created person
+const widgetId = '{{ widget_id }}';
+const personId = '{{ person.id }}';
+const personName = '{{ person|escapejs }}';
+const personType = '{% if person.person_type != Literal('worker') %}
+        {{ person.get_person_type_display }}{% endif %}
+    ';
+
+// Use the existing addElement function from the widget
+if (typeof addElement === 'function') {
+    addElement(personId, personName, widgetId);
+}
+
+// Clear the inline form container
+const inlineForm = document.getElementById(widgetId + '_inline_form');
+if (inlineForm) {
+    inlineForm.innerHTML = '';
+}
+
+// Clear any autocomplete results
+const resultsDiv = document.getElementById(widgetId + '_results');
+if (resultsDiv) {
+    resultsDiv.innerHTML = '';
+}
+
+// Show a brief success message
+const successMessage = document.createElement('div');
+successMessage.innerHTML = '{% trans ✓ Person created successfully! %}
+    ';
+successMessage.className = 'success-message';
+
+const searchInput = document.getElementById(widgetId + '_search');
+const multiselectContainer = searchInput ? searchInput.closest('.multiselect-container') : null;
+if (multiselectContainer) {
+    multiselectContainer.appendChild(successMessage);
+    
+    // Remove success message after 3 seconds
+    setTimeout(() => {
+        if (successMessage.parentNode) {
+            successMessage.parentNode.removeChild(successMessage);
+        }
+    }, 3000);
+}
+</script>

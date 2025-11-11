@@ -36,7 +36,7 @@ def test_prefix_dynamic_suffix():
     assert len(div.attributes) == 1
     assert div.attributes[0].name == "data-{{ item_id }}-active"
     assert div.attributes[0].value == "true"
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print(f"✓ Mixed attribute parsed: {div.attributes[0].name}")
 
     # Format
@@ -75,7 +75,7 @@ def test_data_attribute_dynamic():
     # Check attribute
     div = ast.children[0]
     assert div.attributes[0].name == "data-{{ attr_type }}"
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print("✓ data-* attribute with dynamic part works")
 
     print("\n✅ Data attribute dynamic test passed!")
@@ -103,7 +103,7 @@ def test_htmx_dynamic():
     div = ast.children[0]
     assert div.attributes[0].name == "hx-{{ action }}"
     assert div.attributes[0].value == "/api/endpoint"
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print("✓ HTMX attribute with dynamic part works")
 
     print("\n✅ HTMX dynamic test passed!")
@@ -130,7 +130,7 @@ def test_alpine_dynamic():
     # Check attribute
     div = ast.children[0]
     assert div.attributes[0].name == "x-{{ directive }}"
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print("✓ Alpine.js attribute with dynamic part works")
 
     print("\n✅ Alpine.js dynamic test passed!")
@@ -159,7 +159,7 @@ def test_multiple_dynamic_parts():
     assert "{{ prefix }}" in div.attributes[0].name
     assert "{{ id }}" in div.attributes[0].name
     assert "{{ suffix }}" in div.attributes[0].name
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print(f"✓ Multiple dynamic parts: {div.attributes[0].name}")
 
     # Format
@@ -194,7 +194,7 @@ def test_dynamic_with_template_tag():
     div = ast.children[0]
     assert "data-" in div.attributes[0].name
     assert "{% if active %}" in div.attributes[0].name
-    assert div.attributes[0].is_dynamic_name == True
+    assert div.attributes[0].is_dynamic_name
     print("✓ Dynamic with template tag works")
 
     print("\n✅ Dynamic with template tag test passed!")

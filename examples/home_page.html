@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags static i18n %}
+{% block title %}
+    {{ page.title }} - CFFWU Organizing{% endblock title %}
+{% block content %}
+    <div class="container">
+        <div class="intro">
+        {{ page.body|richtext }}
+    </div>
+        <div class="action-forms">
+            {% for child in page.get_children.live.specific %}
+                <div class="card-sm card-hover">
+                    <h2>{{ child.title }}</h2>
+                    {% if child.intro %}
+                        {{ child.intro|richtext|truncatewords_html:30 }}{% endif %}
+                    <div class="action-buttons">
+                        <a href="{{ child.url }}" class="btn btn-primary">{% trans Record %}
+
+                                                                                                 {{ child.title }}</a>
+                        <a href="{% url 'submission_list' child.slug %}" class="btn btn-secondary">{% trans View Submissions %}
+
+</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock content %}

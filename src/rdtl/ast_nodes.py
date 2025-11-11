@@ -6,7 +6,7 @@ These classes represent the parsed structure of an RDTL template.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Union
+from typing import Any
 
 
 class ASTNode(ABC):
@@ -27,7 +27,7 @@ class ASTNode(ABC):
 class Document(ASTNode):
     """Root node of the AST representing the entire template."""
 
-    children: List[ASTNode] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"Document(children={len(self.children)})"
@@ -43,7 +43,7 @@ class Attribute(ASTNode):
     """HTML attribute (name="value"). Supports dynamic attribute names with template syntax."""
 
     name: str  # Static name or template string (e.g., "{{ attr }}" or "data-{{ id }}")
-    value: Optional[str] = None  # None for boolean attributes
+    value: str | None = None  # None for boolean attributes
     is_dynamic_name: bool = False  # True if name contains template syntax
 
     def __repr__(self) -> str:
@@ -58,8 +58,8 @@ class HTMLElement(ASTNode):
     """HTML element with opening/closing tags."""
 
     tag_name: str
-    attributes: List[Attribute] = field(default_factory=list)
-    children: List[ASTNode] = field(default_factory=list)
+    attributes: list[Attribute] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
     self_closing: bool = False
 
     def __repr__(self) -> str:
@@ -73,7 +73,7 @@ class VoidElement(ASTNode):
     """HTML void element (br, img, input, etc.)."""
 
     tag_name: str
-    attributes: List[Attribute] = field(default_factory=list)
+    attributes: list[Attribute] = field(default_factory=list)
 
     def __repr__(self) -> str:
         attrs = f", attrs={len(self.attributes)}" if self.attributes else ""
@@ -138,7 +138,7 @@ class Variable(ASTNode):
     """Template variable: {{ variable.name }}."""
 
     expression: "Expression"
-    filters: List["Filter"] = field(default_factory=list)
+    filters: list["Filter"] = field(default_factory=list)
 
     def __repr__(self) -> str:
         filters_str = f"|{len(self.filters)} filters" if self.filters else ""
@@ -150,10 +150,10 @@ class Expression(ASTNode):
     """Variable expression (e.g., user.name or items[0])."""
 
     base: str  # Base variable name
-    lookups: List["Lookup"] = field(default_factory=list)
+    lookups: list["Lookup"] = field(default_factory=list)
 
     def __repr__(self) -> str:
-        lookups_str = "".join(str(l) for l in self.lookups)
+        lookups_str = "".join(str(lookup) for lookup in self.lookups)
         return f"{self.base}{lookups_str}"
 
 
@@ -175,7 +175,7 @@ class Filter(ASTNode):
     """Template filter: |filter_name:arg1,arg2."""
 
     name: str
-    args: List[Any] = field(default_factory=list)
+    args: list[Any] = field(default_factory=list)
 
     def __repr__(self) -> str:
         args_str = f":{','.join(repr(a) for a in self.args)}" if self.args else ""
@@ -187,7 +187,7 @@ class FilteredExpression(ASTNode):
     """Expression with filters applied (e.g., field|length in conditions)."""
 
     expression: "Expression"
-    filters: List["Filter"] = field(default_factory=list)
+    filters: list["Filter"] = field(default_factory=list)
 
     def __repr__(self) -> str:
         filters_str = "".join(str(f) for f in self.filters)
@@ -204,9 +204,9 @@ class IfBlock(ASTNode):
     """If/elif/else conditional block."""
 
     if_condition: "Condition"
-    if_children: List[ASTNode] = field(default_factory=list)
-    elif_branches: List[tuple["Condition", List[ASTNode]]] = field(default_factory=list)
-    else_children: Optional[List[ASTNode]] = None
+    if_children: list[ASTNode] = field(default_factory=list)
+    elif_branches: list[tuple["Condition", list[ASTNode]]] = field(default_factory=list)
+    else_children: list[ASTNode] | None = None
 
     def __repr__(self) -> str:
         parts = [f"if({self.if_condition})"]
@@ -221,12 +221,12 @@ class IfBlock(ASTNode):
 class ForBlock(ASTNode):
     """For loop block."""
 
-    loop_vars: List[str] = field(
+    loop_vars: list[str] = field(
         default_factory=list
     )  # Variable names (supports tuple unpacking)
     iterable: Expression = None  # What we're iterating over
-    children: List[ASTNode] = field(default_factory=list)
-    empty_children: Optional[List[ASTNode]] = None
+    children: list[ASTNode] = field(default_factory=list)
+    empty_children: list[ASTNode] | None = None
 
     def __repr__(self) -> str:
         vars_str = (
@@ -243,7 +243,7 @@ class BlockTag(ASTNode):
     """Block definition: {% block name %}...{% endblock %}."""
 
     name: str
-    children: List[ASTNode] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"BlockTag({self.name}, {len(self.children)} children)"
@@ -253,8 +253,8 @@ class BlockTag(ASTNode):
 class WithBlock(ASTNode):
     """With block: {% with var=value %}...{% endwith %}."""
 
-    assignments: List[tuple[str, Expression]] = field(default_factory=list)
-    children: List[ASTNode] = field(default_factory=list)
+    assignments: list[tuple[str, Expression]] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         assigns = ", ".join(f"{k}={v}" for k, v in self.assignments)
@@ -291,7 +291,7 @@ class ExtendsTag(ASTNode):
 class LoadTag(ASTNode):
     """Load tag: {% load static %}."""
 
-    libraries: List[str] = field(default_factory=list)  # Support multiple libraries
+    libraries: list[str] = field(default_factory=list)  # Support multiple libraries
 
     def __repr__(self) -> str:
         return f"LoadTag({', '.join(self.libraries)})"
@@ -302,9 +302,9 @@ class UrlTag(ASTNode):
     """URL tag: {% url 'view_name' arg1 arg2 key=val %}."""
 
     view_name: str
-    args: List[Any] = field(default_factory=list)
+    args: list[Any] = field(default_factory=list)
     kwargs: dict = field(default_factory=dict)
-    as_var: Optional[str] = None
+    as_var: str | None = None
 
     def __repr__(self) -> str:
         return f"UrlTag({self.view_name!r})"
@@ -315,7 +315,7 @@ class StaticTag(ASTNode):
     """Static tag: {% static 'path/to/file.css' %}."""
 
     path: str
-    as_var: Optional[str] = None
+    as_var: str | None = None
 
     def __repr__(self) -> str:
         return f"StaticTag({self.path!r})"
@@ -333,8 +333,8 @@ class CsrfTokenTag(ASTNode):
 class CycleTag(ASTNode):
     """Cycle tag: {% cycle 'value1' 'value2' %}."""
 
-    values: List[Any] = field(default_factory=list)
-    cycle_name: Optional[str] = None  # Optional named cycle
+    values: list[Any] = field(default_factory=list)
+    cycle_name: str | None = None  # Optional named cycle
 
     def __repr__(self) -> str:
         return f"CycleTag({len(self.values)} values)"
@@ -344,7 +344,7 @@ class CycleTag(ASTNode):
 class ResetCycleTag(ASTNode):
     """Reset cycle tag: {% resetcycle cycle_name %}."""
 
-    cycle_name: Optional[str] = None
+    cycle_name: str | None = None
 
     def __repr__(self) -> str:
         return f"ResetCycleTag({self.cycle_name!r})"
@@ -449,7 +449,7 @@ class Comment(ASTNode):
 class CommentBlock(ASTNode):
     """Django comment block: {% comment %}...{% endcomment %}."""
 
-    children: List[ASTNode] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"CommentBlock({len(self.children)} children)"
@@ -459,10 +459,10 @@ class CommentBlock(ASTNode):
 class IfChangedBlock(ASTNode):
     """If changed block: {% ifchanged %}...{% endifchanged %}."""
 
-    watch_expressions: List["Expression"] = field(
+    watch_expressions: list["Expression"] = field(
         default_factory=list
     )  # Optional variables to watch
-    children: List[ASTNode] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         watch_str = (
@@ -478,7 +478,7 @@ class FilterBlock(ASTNode):
     """Filter block: {% filter name %}...{% endfilter %}."""
 
     filter_name: str
-    children: List[ASTNode] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"FilterBlock({self.filter_name}, {len(self.children)} children)"
@@ -488,7 +488,7 @@ class FilterBlock(ASTNode):
 class SpacelessBlock(ASTNode):
     """Spaceless block: {% spaceless %}...{% endspaceless %}."""
 
-    children: List[ASTNode] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"SpacelessBlock({len(self.children)} children)"
@@ -510,7 +510,7 @@ class AutoescapeBlock(ASTNode):
     """Autoescape block: {% autoescape on/off %}...{% endautoescape %}."""
 
     mode: str  # 'on' or 'off'
-    children: List[ASTNode] = field(default_factory=list)
+    children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"AutoescapeBlock({self.mode}, {len(self.children)} children)"
@@ -532,7 +532,7 @@ class Condition(ASTNode):
 class SimpleCondition(Condition):
     """Simple condition: just a variable or expression."""
 
-    expression: "Union[Expression, Literal]"
+    expression: "Expression | Literal"
     negated: bool = False
 
     def __repr__(self) -> str:
@@ -544,9 +544,9 @@ class SimpleCondition(Condition):
 class Comparison(Condition):
     """Comparison condition: x == y, a < b, etc."""
 
-    left: "Union[Expression, Literal]"
+    left: "Expression | Literal"
     operator: str  # ==, !=, <, >, <=, >=, in, not in
-    right: "Union[Expression, Literal]"
+    right: "Expression | Literal"
 
     def __repr__(self) -> str:
         return f"{self.left} {self.operator} {self.right}"
@@ -557,7 +557,7 @@ class BooleanOp(Condition):
     """Boolean operation: and, or."""
 
     operator: str  # 'and' or 'or'
-    operands: List[Condition] = field(default_factory=list)
+    operands: list[Condition] = field(default_factory=list)
 
     def __repr__(self) -> str:
         ops = f" {self.operator} ".join(str(o) for o in self.operands)

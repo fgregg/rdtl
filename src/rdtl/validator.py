@@ -8,7 +8,6 @@ to the restrictions that make it parseable as a context-free grammar.
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
 
 
 class ValidationError(Exception):
@@ -222,7 +221,7 @@ class RDTLValidator:
         self.position = 0
         self.line = 1
         self.column = 1
-        self.errors: List[str] = []
+        self.errors: list[str] = []
         self.strict_html = strict_html
         self.validate_filters = validate_filters
 
@@ -362,8 +361,7 @@ class RDTLValidator:
 
     def _check_proper_nesting(self):
         """Verify proper nesting of HTML and template blocks."""
-        stack: List[StackFrame] = []
-        pos = 0
+        stack: list[StackFrame] = []
 
         # Create a version of content with attribute values masked
         # This prevents template syntax inside attributes from being matched
@@ -666,7 +664,7 @@ class RDTLValidator:
 
 def validate_template(
     template_content: str, strict_html: bool = True, validate_filters: bool = False
-) -> tuple[bool, List[str]]:
+) -> tuple[bool, list[str]]:
     """
     Validate a template against RDTL restrictions.
 

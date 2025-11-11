@@ -11,7 +11,6 @@ This script checks:
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Set
 
 
 # Color codes for output
@@ -42,7 +41,7 @@ def warn(message: str):
     print(f"{Colors.YELLOW}⚠{Colors.RESET} {message}")
 
 
-def extract_grammar_productions(grammar_file: Path) -> Dict[str, str]:
+def extract_grammar_productions(grammar_file: Path) -> dict[str, str]:
     """Extract production rules from EBNF grammar."""
     rules = {}
     with open(grammar_file) as f:
@@ -58,7 +57,7 @@ def extract_grammar_productions(grammar_file: Path) -> Dict[str, str]:
     return rules
 
 
-def extract_parser_methods(parser_file: Path) -> Set[str]:
+def extract_parser_methods(parser_file: Path) -> set[str]:
     """Extract parsing method names from parser.py."""
     methods = set()
     with open(parser_file) as f:

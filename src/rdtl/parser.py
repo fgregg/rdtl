@@ -4,9 +4,7 @@ Recursive descent parser for RDTL.
 Converts token stream into an Abstract Syntax Tree (AST).
 """
 
-from typing import List, Optional, Union
-
-from rdtl.ast_nodes import *
+from rdtl.ast_nodes import *  # noqa: F403, F405
 from rdtl.lexer import Lexer, Token, TokenType
 
 
@@ -52,7 +50,7 @@ class Parser:
         "verbatim",
     }
 
-    def __init__(self, tokens: List[Token], discovered_blocks: set = None):
+    def __init__(self, tokens: list[Token], discovered_blocks: set = None):
         self.tokens = tokens
         self.pos = 0
 
@@ -110,7 +108,7 @@ class Parser:
 
         return Document(children=children)
 
-    def parse_element(self) -> Optional[ASTNode]:
+    def parse_element(self) -> ASTNode | None:
         """Parse a single element (HTML, template, text, etc.)."""
         token = self.current()
 
@@ -216,7 +214,7 @@ class Parser:
         attributes = self.parse_attributes()
         return VoidElement(tag_name=tag_name, attributes=attributes)
 
-    def parse_attributes(self) -> List[Attribute]:
+    def parse_attributes(self) -> list[Attribute]:
         """Parse HTML attributes (supports both static and dynamic names)."""
         attributes = []
 
@@ -294,7 +292,7 @@ class Parser:
 
         return Filter(name=name, args=args)
 
-    def parse_filter_arg(self) -> Union[str, int, float]:
+    def parse_filter_arg(self) -> str | int | float:
         """Parse a filter argument (string, number, or identifier)."""
         if self.match(TokenType.STRING):
             return self.advance().value
@@ -310,7 +308,7 @@ class Parser:
     # Expression parsing
     # ========================================================================
 
-    def parse_expression(self) -> Union[Expression, Literal]:
+    def parse_expression(self) -> Expression | Literal:
         """
         Parse a variable expression or literal: user.name, items.0, 42, "string".
 
@@ -389,7 +387,7 @@ class Parser:
 
     def parse_expression_with_filters(
         self,
-    ) -> Union[Expression, Literal, FilteredExpression]:
+    ) -> Expression | Literal | FilteredExpression:
         """
         Parse an expression with optional filters.
 
@@ -1181,7 +1179,7 @@ class Parser:
 
         return AutoescapeBlock(mode=mode, children=children)
 
-    def parse_block_body(self, end_tokens: List[TokenType]) -> List[ASTNode]:
+    def parse_block_body(self, end_tokens: list[TokenType]) -> list[ASTNode]:
         """Parse the body of a block until we hit an end token."""
         children = []
 

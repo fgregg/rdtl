@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags static i18n %}
+{% block title %}
+    {{ form_page.title }} Submissions - CFFWU Organizing{% endblock title %}
+{% block content %}
+    <div class="container">
+        <div class="header-actions">
+            <h1>{{ form_page.title }} {% trans Submissions %}
+
+</h1>
+            <a href="/" class="back-link">← {% trans Back to Home %}
+
+</a>
+        </div>
+        {% if submissions %}
+            <div class="submission-table card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>{% trans Location %}
+
+</th>
+                            <th>{% trans Date %}
+
+</th>
+                            <th>{% trans Submitted By %}
+
+</th>
+                            <th>{% trans Submission Time %}
+
+</th>
+                            <th>{% trans Actions %}
+
+</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for submission in submissions %}
+                            <tr>
+                                <td data-label="Location">{{ submission.action.location.full_name }}</td>
+                                <td data-label="Date">{{ submission.action.date|date:'SHORT_DATE_FORMAT' }}</td>
+                                <td data-label="Submitted By">{{ submission.action.submitted_by.email }}</td>
+                                <td data-label="Submission Time">{{ submission.submit_time|date:'SHORT_DATETIME_FORMAT' }}</td>
+                                <td data-label="{% trans 'Actions' %}">
+                                    <div class="actions-cell">
+                                        <a href="{% url 'submission_detail' submission.id %}" class="view-link">{% trans View Details %}
+
+</a>
+                                        {% if user.is_staff %}
+                                            <form method="post" action="{% url 'submission_delete' submission.id %}" class="submission-delete-form" onsubmit="return confirm('{% trans 'Are you sure you want to delete this submission? This cannot be undone.' %}');">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger">{% trans Delete %}
+
+</button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if page_obj.has_other_pages %}
+                <div class="pagination">
+                    {% if page_obj.has_previous %}
+                        <a href="?page=1">« {% trans First %}
+
+</a>
+                        <a href="?page={{ page_obj.previous_page_number }}">‹ {% trans Previous %}
+
+</a>
+                    {% endif %}
+                    <span class="current">
+                {% trans Page %}
+
+                                                                                 {{ page_obj.number }} {% trans of %}
+
+                                                                                 {{ page_obj.paginator.num_pages }}
+            </span>
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}">{% trans Next %}
+
+ ›</a>
+                        <a href="?page={{ page_obj.paginator.num_pages }}">{% trans Last %}
+
+ »</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>{% trans No submissions yet %}
+
+</h2>
+                <p>{% blocktranslate with form_title = form_page . title | lower %}
+                    
+                    There are no {{ form_title }} submissions to display.{% endblocktranslate %}
+
+</p>
+                <a href="{{ form_page.url }}" class="btn btn-primary">{% trans Record %}
+
+                                                                 {{ form_page.title }}</a>
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}
