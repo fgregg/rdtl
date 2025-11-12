@@ -43,6 +43,7 @@ dev = [
 
 [project.scripts]
 rdtl-fmt = "rdtl.cli:main"
+rdtl-i18n = "rdtl.i18n_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/forestgregg/restricted_django_template"

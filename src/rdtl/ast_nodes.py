@@ -27,8 +27,19 @@ FilterArg: TypeAlias = "str | int | float | bool | Expression | Literal"
 TemplateValue: TypeAlias = Any
 
 
+@dataclass
 class ASTNode(ABC):
-    """Base class for all AST nodes."""
+    """Base class for all AST nodes.
+
+    Following Python's AST pattern, nodes track their source location.
+    Position fields are optional to maintain backwards compatibility.
+    """
+
+    # Position information (following Python AST convention)
+    lineno: int | None = field(default=None, kw_only=True)  # 1-indexed line number
+    col_offset: int | None = field(default=None, kw_only=True)  # 0-indexed column
+    end_lineno: int | None = field(default=None, kw_only=True)  # ending line
+    end_col_offset: int | None = field(default=None, kw_only=True)  # ending column
 
     @abstractmethod
     def __repr__(self) -> str:

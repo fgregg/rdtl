@@ -221,13 +221,22 @@ class Parser:
 
         # Text content
         if token.type == TokenType.TEXT:
-            text = self.advance().value
+            text_token = self.advance()
+            text = text_token.value
             # Skip empty whitespace-only text nodes
             if text.strip():
-                return ast_nodes.TextNode(content=text)
+                return ast_nodes.TextNode(
+                    content=text,
+                    lineno=text_token.line,
+                    col_offset=text_token.column,
+                )
             # But keep them if they have content
             if text:
-                return ast_nodes.TextNode(content=text)
+                return ast_nodes.TextNode(
+                    content=text,
+                    lineno=text_token.line,
+                    col_offset=text_token.column,
+                )
             return None
 
         # Ignore closing tags here - they're handled by parse_html_element

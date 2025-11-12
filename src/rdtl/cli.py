@@ -12,6 +12,7 @@ Usage:
     cat template.html | rdtl-fmt            # Read from stdin
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -42,12 +43,33 @@ def format_file(
         # Validate first
         is_valid, errors = validate_template(content, strict_html=True)
         if not is_valid:
-            click.echo(
-                click.style(f"❌ {file_path}: Invalid RDTL template", fg="red"),
-                err=True,
-            )
+            # Format validation errors like linter output: filename:line: message
+            # Use relative path for cleaner output
+            try:
+                relative_path = file_path.relative_to(Path.cwd())
+            except ValueError:
+                relative_path = file_path
+
             for error in errors:
-                click.echo(f"   {error}", err=True)
+                # Extract line number from error message if present
+                # Format: "Line X, col Y: message" -> "filename:X: message"
+                line_match = re.match(r"Line (\d+), col \d+: (.+)", error)
+                if line_match:
+                    line_num, message = line_match.groups()
+                    click.echo(
+                        click.style(f"{relative_path}:{line_num}: ", fg="red")
+                        + click.style("error: ", fg="red", bold=True)
+                        + message,
+                        err=True,
+                    )
+                else:
+                    # No line number, just show filename and error
+                    click.echo(
+                        click.style(f"{relative_path}: ", fg="red")
+                        + click.style("error: ", fg="red", bold=True)
+                        + error,
+                        err=True,
+                    )
             return False
 
         # Format
@@ -174,9 +196,24 @@ def main(
         # Validate
         is_valid, errors = validate_template(content, strict_html=True)
         if not is_valid:
-            click.echo(click.style("❌ Invalid RDTL template", fg="red"), err=True)
+            # Format validation errors with standard linter format (stdin has no filename)
             for error in errors:
-                click.echo(f"   {error}", err=True)
+                line_match = re.match(r"Line (\d+), col \d+: (.+)", error)
+                if line_match:
+                    line_num, message = line_match.groups()
+                    click.echo(
+                        click.style(f"stdin:{line_num}: ", fg="red")
+                        + click.style("error: ", fg="red", bold=True)
+                        + message,
+                        err=True,
+                    )
+                else:
+                    click.echo(
+                        click.style("stdin: ", fg="red")
+                        + click.style("error: ", fg="red", bold=True)
+                        + error,
+                        err=True,
+                    )
             sys.exit(1)
 
         # Format
