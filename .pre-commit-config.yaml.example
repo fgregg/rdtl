@@ -1,0 +1,26 @@
+# Example pre-commit configuration for RDTL
+# Copy this to .pre-commit-config.yaml in your project root
+
+repos:
+  # RDTL formatter and i18n linter
+  - repo: https://github.com/fgregg/rdtl
+    rev: v0.1.0  # Use the latest version from releases
+    hooks:
+      # Check template formatting
+      - id: rdtl-fmt
+        # Optional: Specify which files to check
+        files: ^templates/.*\.html$
+
+      # Check for untranslated text
+      - id: rdtl-i18n
+        # Optional: Specify which files to check
+        files: ^templates/.*\.html$
+
+  # Optional: Add other hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files

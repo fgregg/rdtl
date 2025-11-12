@@ -1,0 +1,26 @@
+# Pre-commit hooks for RDTL
+# Usage: Add this to your .pre-commit-config.yaml:
+#
+# repos:
+#   - repo: https://github.com/fgregg/rdtl
+#     rev: v0.1.0  # Use the latest version
+#     hooks:
+#       - id: rdtl-fmt
+#       - id: rdtl-i18n
+
+- id: rdtl-fmt
+  name: RDTL Formatter
+  description: Format and validate RDTL template files
+  entry: rdtl-fmt
+  language: python
+  types: [html]
+  args: [--check]
+  pass_filenames: true
+
+- id: rdtl-i18n
+  name: RDTL i18n Linter
+  description: Check RDTL templates for untranslated user-visible text
+  entry: rdtl-i18n
+  language: python
+  types: [html]
+  pass_filenames: true
