@@ -9,7 +9,6 @@ from rdtl import ast_nodes
 from rdtl.lexer import TokenType
 
 
-
 class TemplateParser:
     """Specialized parser for Django template tags and control structures.
 

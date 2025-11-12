@@ -4,11 +4,8 @@ Tests for template syntax in HTML attributes.
 Tests the new feature allowing templates in attributes with the opposite quote rule.
 """
 
-import pytest
-
 from rdtl import ast_nodes
 from rdtl.formatter import format_template
-from rdtl.lexer import tokenize
 from rdtl.parser import parse
 from rdtl.validator import validate_template
 
@@ -128,32 +125,58 @@ def test_multiple_attributes_with_templates():
     assert is_valid, f"Should be valid. Errors: {errors}"
 
 
-# Invalid cases (same quote type)
+# Same quote type (now valid with proper string tracking)
 
 
-def test_same_quotes_double():
-    """Test that same quote type (double) is rejected."""
+def test_same_quotes_double_now_valid():
+    """Test that same quote type (double) is now supported inside string literals."""
     template = """<div class="{% if x == "y" %}active{% endif %}">Content</div>"""
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Should be valid. Errors: {errors}"
 
-    with pytest.raises(SyntaxError, match='Cannot use " quotes'):
-        tokenize(template)
 
-
-def test_same_quotes_single():
-    """Test that same quote type (single) is rejected."""
+def test_same_quotes_single_now_valid():
+    """Test that same quote type (single) is now supported inside string literals."""
     template = """<div class='{% if x == 'y' %}active{% endif %}'>Content</div>"""
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Should be valid. Errors: {errors}"
 
-    with pytest.raises(SyntaxError, match="Cannot use ' quotes"):
-        tokenize(template)
+
+def test_same_quotes_in_variable_now_valid():
+    """Test that same quotes are now supported in variables too."""
+    template = """<div title="{{ user.name|default:"anonymous" }}">Content</div>"""
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Should be valid. Errors: {errors}"
 
 
-def test_same_quotes_in_variable():
-    """Test that same quotes are rejected in variables too."""
-    # Note: Using dot notation - Django doesn't support bracket notation
-    template = """<div title="{{ user.roles|json:"admin" }}">Content</div>"""
+def test_contractions_with_double_quotes():
+    """Test the motivating case: contractions in double-quoted attributes."""
+    template = """<div title="{% trans "that's all folks" %}">Content</div>"""
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Should be valid. Errors: {errors}"
 
-    with pytest.raises(SyntaxError, match='Cannot use " quotes'):
-        tokenize(template)
+
+def test_contractions_with_single_quotes():
+    """Test contractions forcing double quotes inside single-quoted attribute."""
+    template = """<div title='{% trans "that's all folks" %}'>Content</div>"""
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Should be valid. Errors: {errors}"
+
+
+def test_escaped_quotes_in_string_literal():
+    """Test that escape sequences work properly."""
+    template = r"""<div title="{% trans "say \"hello\"" %}">Content</div>"""
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Should be valid. Errors: {errors}"
+
+
+def test_mixed_quotes_in_expression():
+    """Test multiple string literals with different quote types."""
+    template = (
+        """<div data-msg="{% if x == "a" or y == 'b' %}ok{% endif %}">Content</div>"""
+    )
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Should be valid. Errors: {errors}"
 
 
 # Parsing tests

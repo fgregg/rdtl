@@ -254,6 +254,7 @@ class Parser:
     def parse_void_element(self) -> ast_nodes.VoidElement:
         """Parse a self-closing/void element."""
         return self.html_parser.parse_void_element()
+
     def parse_attributes(self) -> list[ast_nodes.Attribute]:
         """Parse HTML element attributes with support for dynamic attribute names.
 
@@ -292,15 +293,19 @@ class Parser:
             {{ attr }}="val" → [Attribute('{{ attr }}', 'val', is_dynamic_name=True)]
         """
         return self.html_parser.parse_attributes()
+
     def parse_doctype(self) -> ast_nodes.DocType:
         """Parse a DOCTYPE declaration."""
         return self.html_parser.parse_doctype()
+
     def parse_html_comment(self) -> ast_nodes.HTMLComment:
         """Parse an HTML comment."""
         return self.html_parser.parse_html_comment()
+
     def parse_cdata(self) -> ast_nodes.CDATA:
         """Parse a CDATA section."""
         return self.html_parser.parse_cdata()
+
     # ========================================================================
     # Template variable parsing
     # ========================================================================
@@ -1557,6 +1562,7 @@ class Parser:
     def parse_block_body(self, end_tokens: list[TokenType]) -> list[ast_nodes.ASTNode]:
         """Parse the body of a block until we hit an end token."""
         return self.template_parser.parse_block_body(end_tokens)
+
     # ========================================================================
     # Condition parsing (for if/elif)
     # ========================================================================
@@ -1564,15 +1570,19 @@ class Parser:
     def parse_condition(self) -> ast_nodes.Condition:
         """Parse a boolean condition."""
         return self.template_parser.parse_condition()
+
     def parse_or_condition(self) -> ast_nodes.Condition:
         """Parse OR conditions."""
         return self.template_parser.parse_or_condition()
+
     def parse_and_condition(self) -> ast_nodes.Condition:
         """Parse AND conditions."""
         return self.template_parser.parse_and_condition()
+
     def parse_not_condition(self) -> ast_nodes.Condition:
         """Parse NOT conditions."""
         return self.template_parser.parse_not_condition()
+
     def parse_primary_condition(self) -> ast_nodes.Condition:
         """Parse the primary unit of a condition: comparison or truthiness check.
 
@@ -1608,6 +1618,7 @@ class Parser:
             items|length > 0 → Comparison(left=FilteredExpression(...), operator='>', right=0)
         """
         return self.template_parser.parse_primary_condition()
+
     # ========================================================================
     # Comment parsing
     # ========================================================================

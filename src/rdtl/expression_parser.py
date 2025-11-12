@@ -86,7 +86,7 @@ class ExpressionParser:
 
         # Variable expression
         if not self.parser.is_identifier_like():
-            from rdtl.parser import ParseError
+            from rdtl.parser import ParseError  # noqa: PLC0415 (avoid circular import)
 
             raise ParseError(
                 f"Expected expression at line {self.parser.current().line}, "
@@ -104,7 +104,9 @@ class ExpressionParser:
 
             # Check for space before dot (user .name)
             if base_token.column + len(str(base_token.value)) < dot_token.column:
-                from rdtl.parser import ParseError
+                from rdtl.parser import (  # noqa: PLC0415 (avoid circular import)
+                    ParseError,
+                )
 
                 raise ParseError(
                     f"No spaces allowed before '.' in variable lookup at "
@@ -116,7 +118,9 @@ class ExpressionParser:
             # Check for space after dot (user. name)
             next_token = self.parser.current()
             if dot_token.column + 1 < next_token.column:
-                from rdtl.parser import ParseError
+                from rdtl.parser import (  # noqa: PLC0415 (avoid circular import)
+                    ParseError,
+                )
 
                 raise ParseError(
                     f"No spaces allowed after '.' in variable lookup at "
@@ -128,15 +132,21 @@ class ExpressionParser:
                 # Numeric index: items.0
                 # Django treats numeric lookups as attributes (string-based lookup)
                 num_token = self.parser.advance()
-                lookups.append(ast_nodes.Lookup(type="attribute", value=num_token.value))
+                lookups.append(
+                    ast_nodes.Lookup(type="attribute", value=num_token.value)
+                )
                 base_token = num_token
             elif self.parser.is_identifier_like():
                 # Attribute: user.name
                 attr_token = self.parser.advance()
-                lookups.append(ast_nodes.Lookup(type="attribute", value=attr_token.value))
+                lookups.append(
+                    ast_nodes.Lookup(type="attribute", value=attr_token.value)
+                )
                 base_token = attr_token
             else:
-                from rdtl.parser import ParseError
+                from rdtl.parser import (  # noqa: PLC0415 (avoid circular import)
+                    ParseError,
+                )
 
                 raise ParseError(
                     f"Expected attribute or index after '.' at "
@@ -233,7 +243,9 @@ class ExpressionParser:
         name_token = self.parser.expect(TokenType.IDENTIFIER)
         name = name_token.value
 
-        args: list[str | int | float | bool | ast_nodes.Expression | ast_nodes.Literal] = []
+        args: list[
+            str | int | float | bool | ast_nodes.Expression | ast_nodes.Literal
+        ] = []
         if self.parser.match(TokenType.COLON):
             self.parser.advance()  # :
 
@@ -302,6 +314,8 @@ class ExpressionParser:
         elif self.parser.match(TokenType.IDENTIFIER):
             return self.parser.advance().value
         else:
-            from rdtl.parser import ParseError
+            from rdtl.parser import ParseError  # noqa: PLC0415 (avoid circular import)
 
-            raise ParseError(f"Expected filter argument at line {self.parser.current().line}")
+            raise ParseError(
+                f"Expected filter argument at line {self.parser.current().line}"
+            )

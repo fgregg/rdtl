@@ -9,7 +9,6 @@ from rdtl import ast_nodes
 from rdtl.lexer import TokenType
 
 
-
 class HtmlParser:
     """Specialized parser for HTML elements and attributes.
 
@@ -115,7 +114,7 @@ class HtmlParser:
 
         # Expect closing tag
         if not self.parser.match(TokenType.HTML_CLOSE_TAG):
-            from rdtl.parser import ParseError
+            from rdtl.parser import ParseError  # noqa: PLC0415 (avoid circular import)
 
             raise ParseError(
                 f"Expected closing tag for <{tag_name}> at line {self.parser.current().line}"
@@ -125,7 +124,7 @@ class HtmlParser:
 
         # Verify tag names match
         if close_token.value != tag_name:
-            from rdtl.parser import ParseError
+            from rdtl.parser import ParseError  # noqa: PLC0415 (avoid circular import)
 
             raise ParseError(
                 f"Mismatched closing tag: expected </{tag_name}> but got </{close_token.value}> "

@@ -4,9 +4,6 @@ Test suite for RDTL validator.
 
 from pathlib import Path
 
-import pytest
-
-from rdtl.lexer import tokenize
 from rdtl.validator import validate_template
 
 # Get the project root directory
@@ -140,12 +137,12 @@ def test_valid_variable_in_attribute():
     assert is_valid, f"Template should be valid. Errors: {errors}"
 
 
-def test_invalid_same_quotes_in_attribute():
-    """Test that same quote type in attribute templates is rejected."""
-    # This should fail during lexing/parsing, not validation
-    template = """<div class="{% if x == "y" %}active{% endif %}">"""
-    with pytest.raises(SyntaxError, match='Cannot use " quotes'):
-        tokenize(template)
+def test_same_quotes_in_attribute_now_valid():
+    """Test that same quote type in attribute templates is now supported."""
+    # String literal tracking now allows same-quote nesting
+    template = """<div class="{% if x == "y" %}active{% endif %}">Content</div>"""
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Template should be valid. Errors: {errors}"
 
 
 def test_invalid_interleaved_nesting():

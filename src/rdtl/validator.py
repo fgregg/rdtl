@@ -360,7 +360,12 @@ class RDTLValidator:
             self.errors.append(f"Line {line}, col {col}: Unclosed '{type_name}'")
 
     def _handle_html_opening_tag(
-        self, stack: list[StackFrame], html_tag: str, match_start: int, line: int, col: int
+        self,
+        stack: list[StackFrame],
+        html_tag: str,
+        match_start: int,
+        line: int,
+        col: int,
     ) -> None:
         """Handle an HTML opening tag during nesting validation.
 
@@ -441,7 +446,12 @@ class RDTLValidator:
                 )
 
     def _handle_template_opening_tag(
-        self, stack: list[StackFrame], template_tag: str, match_start: int, line: int, col: int
+        self,
+        stack: list[StackFrame],
+        template_tag: str,
+        match_start: int,
+        line: int,
+        col: int,
     ) -> None:
         """Handle a template block opening tag during nesting validation.
 
@@ -585,7 +595,9 @@ class RDTLValidator:
 
                 # Opening tag
                 if not html_close:
-                    self._handle_html_opening_tag(stack, html_tag, match.start(), line, col)
+                    self._handle_html_opening_tag(
+                        stack, html_tag, match.start(), line, col
+                    )
                 # Closing tag
                 else:
                     self._handle_html_closing_tag(stack, html_tag, line, col)
@@ -596,7 +608,9 @@ class RDTLValidator:
 
                 # Opening block tag
                 if tag_lower in self.ALLOWED_BLOCKS:
-                    self._handle_template_opening_tag(stack, template_tag, match.start(), line, col)
+                    self._handle_template_opening_tag(
+                        stack, template_tag, match.start(), line, col
+                    )
                 # Closing block tag
                 elif tag_lower.startswith("end"):
                     self._handle_template_closing_tag(stack, template_tag, line, col)
@@ -681,12 +695,63 @@ class RDTLValidator:
                             i += 1
 
                             # Mask everything until the closing quote
+                            # Track when we're inside template tags/variables to handle nested quotes
+                            inside_template = False
+                            template_string_delimiter = None
+
                             while i < len(content):
-                                if content[i] == quote:
+                                # Check for template tag/variable start
+                                if i + 1 < len(content) and content[i : i + 2] in (
+                                    "{{",
+                                    "{%",
+                                    "{#",
+                                ):
+                                    inside_template = True
+                                    result.append(" ")
+                                    i += 1
+                                    result.append(" ")
+                                    i += 1
+                                    continue
+
+                                # Check for template tag/variable end
+                                if (
+                                    inside_template
+                                    and i + 1 < len(content)
+                                    and content[i : i + 2] in ("}}", "%}", "#}")
+                                ):
+                                    inside_template = False
+                                    template_string_delimiter = None
+                                    result.append(" ")
+                                    i += 1
+                                    result.append(" ")
+                                    i += 1
+                                    continue
+
+                                # Track string literals inside templates
+                                if inside_template and content[i] in ('"', "'"):
+                                    if template_string_delimiter is None:
+                                        # Entering a string literal in the template
+                                        template_string_delimiter = content[i]
+                                    elif content[i] == template_string_delimiter:
+                                        # Check for escape sequence
+                                        if i > 0 and content[i - 1] != "\\":
+                                            # Exiting the string literal
+                                            template_string_delimiter = None
+                                    result.append(" ")
+                                    i += 1
+                                    continue
+
+                                # Check for attribute-delimiting quote (only when not in template string)
+                                if content[i] == quote and (
+                                    not inside_template
+                                    or template_string_delimiter is None
+                                ):
                                     result.append(content[i])
                                     i += 1
                                     break
-                                elif content[i] == "\n":
+
+                                # Preserve newlines for line counting
+                                if content[i] == "\n":
                                     result.append("\n")
                                     i += 1
                                 else:

@@ -675,9 +675,15 @@ class Lexer:
         """
         Tokenize an attribute value that may contain template syntax.
 
-        Allows templates inside attributes with opposite quote type rule:
-        - Double-quoted attributes can use single quotes in templates
-        - Single-quoted attributes can use double quotes in templates
+        Properly handles string literals inside template tags/variables within attributes.
+        String literals can use any quote type, including the same as the attribute delimiter:
+        - title="{{ trans "Click here" }}" is valid
+        - title='{% trans 'Click here' %}' is valid
+        - data-msg="{% trans "that's all" %}" is valid
+
+        The lexer tracks when inside string literals to distinguish between:
+        - Attribute-delimiting quotes (end the attribute value)
+        - String-literal quotes inside templates (part of the template content)
 
         Returns the attribute value as a string.
         """
@@ -724,7 +730,16 @@ class Lexer:
             value_buffer.append(self.advance_checked())
 
     def _collect_template_var_in_attr(self, buffer: list, forbidden_quote: str):
-        """Collect template variable content in attribute, checking quote rules."""
+        """Collect template variable content in attribute, tracking string literals.
+
+        Properly handles string literals inside template variables, allowing
+        the same quote type as the attribute delimiter when inside strings:
+        - title="{{ trans "Click here" }}" is now valid
+        - title='{{ trans 'Click here' }}' is now valid
+        """
+        inside_string = False
+        string_delimiter = None
+
         while True:
             char = self.current_char()
 
@@ -733,16 +748,30 @@ class Lexer:
                     f"Unterminated variable in attribute at line {self.line}"
                 )
 
-            # Check for forbidden quote
-            if char == forbidden_quote:
-                quote_type = "single" if forbidden_quote == '"' else "double"
-                raise SyntaxError(
-                    f"Line {self.line}: Cannot use {forbidden_quote} quotes inside template-in-attribute. "
-                    f"Use {quote_type} quotes instead."
-                )
+            # Handle escape sequences inside strings
+            if inside_string and char == "\\":
+                buffer.append(self.advance())  # backslash
+                next_char = self.current_char()
+                if next_char is not None:
+                    buffer.append(self.advance())  # escaped character
+                continue
 
-            # Check for closing }}
-            if char == "}" and self.peek() == "}":
+            # Check for string delimiter
+            if char in ('"', "'"):
+                if not inside_string:
+                    # Entering a string
+                    inside_string = True
+                    string_delimiter = char
+                elif char == string_delimiter:
+                    # Exiting the string
+                    inside_string = False
+                    string_delimiter = None
+                # Always append the quote
+                buffer.append(self.advance())
+                continue
+
+            # Check for closing }} only when not inside a string
+            if not inside_string and char == "}" and self.peek() == "}":
                 buffer.append(self.advance())  # }
                 buffer.append(self.advance())  # }
                 return
@@ -750,7 +779,16 @@ class Lexer:
             buffer.append(self.advance())
 
     def _collect_template_tag_in_attr(self, buffer: list, forbidden_quote: str):
-        """Collect template tag content in attribute, checking quote rules."""
+        """Collect template tag content in attribute, tracking string literals.
+
+        Properly handles string literals inside template tags, allowing
+        the same quote type as the attribute delimiter when inside strings:
+        - title="{% trans "Click here" %}" is now valid
+        - title='{% trans 'Click here' %}' is now valid
+        """
+        inside_string = False
+        string_delimiter = None
+
         while True:
             char = self.current_char()
 
@@ -759,16 +797,30 @@ class Lexer:
                     f"Unterminated template tag in attribute at line {self.line}"
                 )
 
-            # Check for forbidden quote
-            if char == forbidden_quote:
-                quote_type = "single" if forbidden_quote == '"' else "double"
-                raise SyntaxError(
-                    f"Line {self.line}: Cannot use {forbidden_quote} quotes inside template-in-attribute. "
-                    f"Use {quote_type} quotes instead."
-                )
+            # Handle escape sequences inside strings
+            if inside_string and char == "\\":
+                buffer.append(self.advance())  # backslash
+                next_char = self.current_char()
+                if next_char is not None:
+                    buffer.append(self.advance())  # escaped character
+                continue
 
-            # Check for closing %}
-            if char == "%" and self.peek() == "}":
+            # Check for string delimiter
+            if char in ('"', "'"):
+                if not inside_string:
+                    # Entering a string
+                    inside_string = True
+                    string_delimiter = char
+                elif char == string_delimiter:
+                    # Exiting the string
+                    inside_string = False
+                    string_delimiter = None
+                # Always append the quote
+                buffer.append(self.advance())
+                continue
+
+            # Check for closing %} only when not inside a string
+            if not inside_string and char == "%" and self.peek() == "}":
                 buffer.append(self.advance())  # %
                 buffer.append(self.advance())  # }
                 return

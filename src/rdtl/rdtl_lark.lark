@@ -1,5 +1,37 @@
-// Lark grammar for RDTL (subset for verification)
-// This is a simplified version focused on core features
+// Lark Grammar for RDTL - Verification and Basic Generation
+// ===========================================================
+//
+// PURPOSE:
+//   This grammar is used for:
+//   1. Structure verification (defining valid RDTL syntax)
+//   2. Parser agreement testing (comparing Lark vs manual parser)
+//   3. Basic template generation (via Hypothesis + Lark)
+//
+// LIMITATION - NESTED QUOTES:
+//   This grammar CANNOT express the nested quote feature:
+//       <div title="{% trans "that's all folks" %}">
+//
+//   The manual RDTL lexer uses STATEFUL parsing to handle this:
+//   - Tracks which quote type started the attribute
+//   - Tracks when inside template tag/variable
+//   - Tracks when inside string literal within template
+//
+//   Lark uses REGEX-BASED (stateless) lexing which cannot:
+//   - Remember what quote started the attribute
+//   - Distinguish "attribute-ending quote" from "string-literal quote"
+//   - Track nested state (inside template → inside string)
+//
+// TEST GENERATION STRATEGY:
+//   - Use this Lark grammar to generate ~90% of test cases
+//   - Use custom Hypothesis strategies for nested quotes (see test_property_based.py)
+//   - Combined approach gives 100% coverage
+//
+// GRAMMAR PROPERTIES:
+//   - Parser Grammar: Context-Free (tokens → AST)
+//   - Language Grammar: Context-Sensitive (characters → AST, due to stateful lexer)
+//   - This Lark grammar models the parser grammar (context-free part)
+//
+// See THEORY.md for detailed explanation of CFG properties.
 
 ?start: document
 
@@ -21,13 +53,21 @@ void_element: "<" TAG_NAME attribute* "/>"
 
 attribute: ATTR_NAME ["=" attr_value]
 
+// Attribute values can contain mixed content: text, variables, and template tags
+//
+// LIMITATION: This Lark grammar uses regex-based lexing which cannot properly
+// model the stateful quote tracking that the actual RDTL lexer implements.
+//
+// The real lexer tracks:
+// - When inside template tags/variables within attribute values
+// - When inside string literals within those templates
+// - Proper handling of escape sequences
+//
+// This allows: title="{% trans "that's all folks" %}"
+//
+// The Lark grammar below is simplified and does NOT support nested quotes.
+// It's kept for basic grammar verification but is not a complete specification.
 attr_value: QUOTED_STRING
-          | template_in_attr
-
-template_in_attr: "{{" expression "}}"
-                | "{%" RAW_TAG_CONTENT "%}"
-
-RAW_TAG_CONTENT: /[^%]+/
 
 // Template Variables
 template_variable: "{{" expression filter_chain? "}}"

@@ -58,6 +58,9 @@ def simple_html_element(draw):
     return f"<{tag}>{content}</{tag}>"
 
 
+# NOTE: Nested quote strategies moved to test_nested_quotes_property.py
+
+
 # ============================================================================
 # Property Tests
 # ============================================================================
@@ -172,6 +175,14 @@ class TestValidatorProperties:
 
 # ============================================================================
 # Lark Comparison Tests (if Lark is available)
+# ============================================================================
+#
+# NOTE: Nested quote tests have been moved to test_nested_quotes_property.py
+# to maintain function-based test style and separate concerns.
+#
+# The Lark grammar cannot generate nested-quote templates due to its
+# regex-based (stateless) lexer. See test_nested_quotes_property.py for
+# custom Hypothesis strategies that generate these edge cases.
 # ============================================================================
 
 try:
