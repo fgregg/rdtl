@@ -13,11 +13,13 @@ Set up RDTL's formatter and i18n linter to run automatically on every commit.
    ```yaml
    repos:
      - repo: https://github.com/fgregg/rdtl
-       rev: v0.1.0
+       rev: main  # Use 'main' to track latest, or a specific commit SHA
        hooks:
          - id: rdtl-fmt      # Check template formatting
          - id: rdtl-i18n     # Check for untranslated text
    ```
+
+   Note: Use `rev: main` during active development. After first release, use `rev: v0.1.0` for stability.
 
 3. **Install the hooks**:
    ```bash

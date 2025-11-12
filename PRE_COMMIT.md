@@ -13,11 +13,16 @@ This guide shows you how to set up RDTL's formatter and i18n linter as pre-commi
    ```yaml
    repos:
      - repo: https://github.com/fgregg/rdtl
-       rev: v0.1.0  # Use the latest version
+       rev: main  # Use 'main' for latest, or specific commit SHA/tag
        hooks:
          - id: rdtl-fmt
          - id: rdtl-i18n
    ```
+
+   **Note on `rev` values:**
+   - During active development: `rev: main` (tracks latest changes)
+   - For stability: `rev: COMMIT_SHA` (specific commit)
+   - After first release: `rev: v0.1.0` (stable version)
 
 3. **Install the hooks**:
    ```bash
@@ -141,6 +146,57 @@ Checks for user-visible text that isn't wrapped in translation tags:
 - Numeric values and currency
 - UI symbols (arrows, bullets, checkmarks)
 - Emoji
+
+## Using During Active Development
+
+RDTL is under active development. Here are options for early adopters:
+
+### Option 1: Track Main Branch (Latest Features)
+
+```yaml
+repos:
+  - repo: https://github.com/fgregg/rdtl
+    rev: main
+    hooks:
+      - id: rdtl-i18n
+```
+
+**Pros**: Always get latest features and fixes
+**Cons**: May have breaking changes
+
+Update to latest: `pre-commit autoupdate`
+
+### Option 2: Pin to Specific Commit (Stable)
+
+```yaml
+repos:
+  - repo: https://github.com/fgregg/rdtl
+    rev: abc123def456  # Use actual commit SHA
+    hooks:
+      - id: rdtl-i18n
+```
+
+**Pros**: Stable, reproducible builds
+**Cons**: Need to manually update
+
+Find latest commit: Visit https://github.com/fgregg/rdtl/commits/main
+
+### Option 3: Local Development (For Contributors)
+
+If you're contributing to RDTL or testing local changes:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: rdtl-i18n
+        name: RDTL i18n Linter
+        entry: rdtl-i18n
+        language: system
+        types: [html]
+```
+
+Requires: `pip install -e /path/to/rdtl` in your environment
 
 ## FAQ
 

@@ -76,9 +76,8 @@ def main(files: tuple[Path, ...], verbose: bool):
             click.echo(
                 "\n"
                 + click.style("Note: ", fg="yellow", bold=True)
-                + "This i18n linter is under active development. "
-                "If you believe an error is incorrect, please report it at:\n"
-                "https://github.com/fgregg/rdtl/issues",
+                + "RDTL is under active development. Please report issues at:\n"
+                + "https://github.com/fgregg/rdtl/issues",
                 err=True,
             )
             sys.exit(1)
@@ -158,12 +157,13 @@ def main(files: tuple[Path, ...], verbose: bool):
             f"\n❌ Found {', '.join(summary_parts)} in {files_with_issues} file(s)",
             err=True,
         )
+
+        # Show development notice only once at the end
         click.echo(
             "\n"
             + click.style("Note: ", fg="yellow", bold=True)
-            + "This i18n linter is under active development. "
-            "If you believe an error is incorrect, please report it at:\n"
-            "https://github.com/fgregg/rdtl/issues",
+            + "RDTL is under active development. Please report issues at:\n"
+            + "https://github.com/fgregg/rdtl/issues",
             err=True,
         )
         sys.exit(1)

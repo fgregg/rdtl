@@ -302,9 +302,8 @@ def main(
         click.echo(
             "\n"
             + click.style("Note: ", fg="yellow", bold=True)
-            + "This formatter is under active development. "
-            "If you believe an error is incorrect, please report it at:\n"
-            "https://github.com/fgregg/rdtl/issues",
+            + "RDTL is under active development. Please report issues at:\n"
+            + "https://github.com/fgregg/rdtl/issues",
             err=True,
         )
 

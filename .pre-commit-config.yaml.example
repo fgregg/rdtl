@@ -3,8 +3,10 @@
 
 repos:
   # RDTL formatter and i18n linter
+  # Note: Before first release, use 'rev: main' to track latest changes
+  # After v0.1.0 release, use 'rev: v0.1.0' for stable version
   - repo: https://github.com/fgregg/rdtl
-    rev: v0.1.0  # Use the latest version from releases
+    rev: main  # Use 'main' before first release, or specific tag after
     hooks:
       # Check template formatting
       - id: rdtl-fmt
