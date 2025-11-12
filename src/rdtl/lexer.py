@@ -93,6 +93,7 @@ class TokenType(Enum):
     AND = auto()
     OR = auto()
     NOT = auto()
+    IS = auto()  # is
 
     # Literals and identifiers
     IDENTIFIER = auto()
@@ -238,6 +239,7 @@ class Lexer:
         "and": TokenType.AND,
         "or": TokenType.OR,
         "not": TokenType.NOT,
+        "is": TokenType.IS,
     }
 
     def __init__(self, content: str):

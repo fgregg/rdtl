@@ -146,5 +146,17 @@ class TemplateParser:
             right = self.expression_parser.parse_expression_with_filters()
             return ast_nodes.Comparison(left=left, operator="in", right=right)
 
+        # Check for 'is' and 'is not' operators
+        if self.parser.match(TokenType.IS):
+            self.parser.advance()
+            # Check for 'is not'
+            if self.parser.match(TokenType.NOT):
+                self.parser.advance()
+                right = self.expression_parser.parse_expression_with_filters()
+                return ast_nodes.Comparison(left=left, operator="is not", right=right)
+            # Just 'is'
+            right = self.expression_parser.parse_expression_with_filters()
+            return ast_nodes.Comparison(left=left, operator="is", right=right)
+
         # Simple expression (truthy check)
         return ast_nodes.SimpleCondition(expression=left, negated=False)

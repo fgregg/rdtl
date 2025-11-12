@@ -150,7 +150,7 @@ simple_condition: "not"? (comparison | expression_or_filtered)
 
 comparison: expression_or_filtered comparator expression_or_filtered
 
-comparator: "==" | "!=" | "<=" | ">=" | "<" | ">" | "in"
+comparator: "==" | "!=" | "<=" | ">=" | "<" | ">" | "in" | "is" "not" | "is"
 
 // Lexer Rules
 TAG_NAME: /[a-zA-Z][a-zA-Z0-9]*/

@@ -452,3 +452,27 @@ def test_numeric_index_via_dot():
     assert len(var.expression.lookups) == 1
     assert var.expression.lookups[0].type == "attribute"
     assert var.expression.lookups[0].value == "0"
+
+
+def test_is_operator():
+    """Test 'is' operator."""
+    template = "{% if x is None %}yes{% endif %}"
+    ast = parse(template)
+    assert isinstance(ast, ast_nodes.Document)
+    assert len(ast.children) == 1
+    if_block = ast.children[0]
+    assert isinstance(if_block, ast_nodes.IfBlock)
+    assert isinstance(if_block.if_condition, ast_nodes.Comparison)
+    assert if_block.if_condition.operator == "is"
+
+
+def test_is_not_operator():
+    """Test 'is not' operator."""
+    template = "{% if x is not None %}yes{% endif %}"
+    ast = parse(template)
+    assert isinstance(ast, ast_nodes.Document)
+    assert len(ast.children) == 1
+    if_block = ast.children[0]
+    assert isinstance(if_block, ast_nodes.IfBlock)
+    assert isinstance(if_block.if_condition, ast_nodes.Comparison)
+    assert if_block.if_condition.operator == "is not"
