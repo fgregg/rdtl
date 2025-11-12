@@ -55,6 +55,9 @@ class Formatter(ast_nodes.ASTVisitor):
         self.indent_level = 0
         self.needs_indent = True
         self.last_was_block = False
+        self.inline_context_depth = (
+            0  # Track nesting depth of inline formatting contexts
+        )
 
     def format(self, node: ast_nodes.ASTNode) -> str:
         """Format an AST to a pretty-printed string."""
@@ -103,6 +106,140 @@ class Formatter(ast_nodes.ASTVisitor):
             return "\t" * self.indent_level
         return " " * (self.indent_level * self.options.indent_size)
 
+    def _has_block_children(self, node) -> bool:
+        """Check if node has block-level children (vs inline children only)."""
+        if not hasattr(node, "children"):
+            return False
+
+        # Inline HTML elements that should not trigger block formatting
+        INLINE_ELEMENTS = {
+            "a",
+            "abbr",
+            "b",
+            "bdi",
+            "bdo",
+            "cite",
+            "code",
+            "data",
+            "dfn",
+            "em",
+            "i",
+            "kbd",
+            "mark",
+            "q",
+            "s",
+            "samp",
+            "small",
+            "span",
+            "strong",
+            "sub",
+            "sup",
+            "time",
+            "u",
+            "var",
+            "wbr",
+            "button",
+            "label",
+            "output",
+            "select",
+            "textarea",
+        }
+
+        for child in node.children:
+            # Check for block-level Django template tags
+            if isinstance(
+                child, (ast_nodes.IfBlock, ast_nodes.ForBlock, ast_nodes.BlockTag)
+            ):
+                return True
+
+            # Check for block-level HTML elements (not inline)
+            if isinstance(child, ast_nodes.HTMLElement):
+                if child.tag_name.lower() not in INLINE_ELEMENTS:
+                    return True
+
+        return False
+
+    def _format_block_tag(
+        self, node, opening_tag: str, closing_tag: str, format_children: bool = True
+    ):
+        """
+        Generic formatter for block tags with inline/block detection.
+
+        Args:
+            node: The AST node to format
+            opening_tag: Opening tag string (e.g., "{% spaceless %}")
+            closing_tag: Closing tag string (e.g., "{% endspaceless %}")
+            format_children: If True, visit children; if False, use node.content directly
+        """
+        has_block_children = self._has_block_children(node)
+
+        if has_block_children:
+            # Block formatting - add newlines and indentation
+            self.writeln(opening_tag)
+
+            if format_children:
+                self._increase_indent()
+                for child in node.children:
+                    self.visit(child)
+                self._decrease_indent()
+            else:
+                # For verbatim blocks that have raw content
+                self.write(node.content)
+
+            self.writeln(closing_tag)
+        else:
+            # Inline formatting - enter inline context to suppress newlines
+            self.write(opening_tag)
+
+            # Enter inline context - this will prevent nested elements from adding newlines
+            self.inline_context_depth += 1
+            try:
+                if format_children:
+                    # Visit children normally - they'll respect inline_context_depth
+                    for child in node.children:
+                        self.visit(child)
+                else:
+                    # For verbatim blocks that have raw content
+                    self.output.append(node.content)
+            finally:
+                self.inline_context_depth -= 1
+
+            self.write(closing_tag)
+
+    def _serialize_unformatted(self, node):
+        """Serialize a node as-is without formatting (for script tags)."""
+        if isinstance(node, ast_nodes.Variable):
+            self.output.append("{{ ")
+            self.output.append(str(node.expression))
+            for filter_obj in node.filters:
+                self.output.append("|")
+                self.output.append(filter_obj.name)
+                if filter_obj.args:
+                    self.output.append(":")
+                    self.output.append(",".join(str(arg) for arg in filter_obj.args))
+            self.output.append(" }}")
+        elif isinstance(node, ast_nodes.IfBlock):
+            # Output if block
+            self.output.append("{% if ")
+            self.output.append(self._format_condition(node.if_condition))
+            self.output.append(" %}")
+            for child in node.if_children:
+                if isinstance(child, ast_nodes.TextNode):
+                    self.output.append(child.content)
+                else:
+                    self._serialize_unformatted(child)
+            self.output.append("{% endif %}")
+        elif isinstance(node, ast_nodes.SingleTag):
+            self.output.append("{% ")
+            self.output.append(node.tag_name)
+            if node.raw_content:
+                self.output.append(" ")
+                self.output.append(node.raw_content)
+            self.output.append(" %}")
+        else:
+            # Fallback: use regular formatting
+            self.visit(node)
+
     def _increase_indent(self):
         """Increase indentation level."""
         self.indent_level += 1
@@ -128,6 +265,32 @@ class Formatter(ast_nodes.ASTVisitor):
         """Format an HTML element."""
         tag = node.tag_name
 
+        # Special case: script and pre tags - output children as-is without formatting
+        # These preserve whitespace, so we can't reformat their contents
+        if tag in ("script", "pre"):
+            # Serialize script tag manually
+            self.write(f"<{tag}")
+            for attr in node.attributes:
+                self.write(" ")
+                self.write(attr.name)
+                if attr.value is not None:
+                    # Use simple quoting for script attributes
+                    quote = '"' if self.options.quotes == "double" else "'"
+                    self.write(f"={quote}{attr.value}{quote}")
+            self.write(">")
+
+            # Output children as-is without any formatting
+            for child in node.children:
+                if isinstance(child, ast_nodes.TextNode):
+                    self.output.append(child.content)
+                else:
+                    # For non-text nodes (variables, tags), output them directly
+                    self._serialize_unformatted(child)
+
+            self.write(f"</{tag}>")
+            self.writeln()
+            return
+
         # Opening tag
         self.write(f"<{tag}")
 
@@ -136,7 +299,24 @@ class Formatter(ast_nodes.ASTVisitor):
             self.write(" ")
             self.write(attr.name)
             if attr.value is not None:
-                quote = '"' if self.options.quotes == "double" else "'"
+                # Choose quote style: if value contains the preferred quote, use the other
+                preferred_quote = '"' if self.options.quotes == "double" else "'"
+                alternate_quote = "'" if preferred_quote == '"' else '"'
+
+                if preferred_quote in attr.value and alternate_quote not in attr.value:
+                    # Use alternate quote if value has preferred but not alternate
+                    quote = alternate_quote
+                elif preferred_quote not in attr.value:
+                    # Use preferred if it's not in the value
+                    quote = preferred_quote
+                else:
+                    # Both quotes present - escape the preferred one
+                    quote = preferred_quote
+                    # Escape the quote character in the value
+                    escaped_value = attr.value.replace(quote, f"\\{quote}")
+                    self.write(f"={quote}{escaped_value}{quote}")
+                    continue
+
                 self.write(f"={quote}{attr.value}{quote}")
 
         self.write(">")
@@ -155,8 +335,12 @@ class Formatter(ast_nodes.ASTVisitor):
             for child in node.children
         )
 
-        if has_block_children and self.options.indent_html:
-            # Block formatting
+        if (
+            has_block_children
+            and self.options.indent_html
+            and self.inline_context_depth == 0
+        ):
+            # Block formatting (only if not in inline context)
             self.writeln()
             self._increase_indent()
 
@@ -175,7 +359,9 @@ class Formatter(ast_nodes.ASTVisitor):
                     self.visit(child)
 
             self.output.append(f"</{tag}>")
-            self.writeln()
+            # Only add newline if not in inline context
+            if self.inline_context_depth == 0:
+                self.writeln()
 
     def visit_VoidElement(self, node: ast_nodes.VoidElement):
         """Format a void element."""
@@ -185,7 +371,24 @@ class Formatter(ast_nodes.ASTVisitor):
             self.write(" ")
             self.write(attr.name)
             if attr.value is not None:
-                quote = '"' if self.options.quotes == "double" else "'"
+                # Choose quote style: if value contains the preferred quote, use the other
+                preferred_quote = '"' if self.options.quotes == "double" else "'"
+                alternate_quote = "'" if preferred_quote == '"' else '"'
+
+                if preferred_quote in attr.value and alternate_quote not in attr.value:
+                    # Use alternate quote if value has preferred but not alternate
+                    quote = alternate_quote
+                elif preferred_quote not in attr.value:
+                    # Use preferred if it's not in the value
+                    quote = preferred_quote
+                else:
+                    # Both quotes present - escape the preferred one
+                    quote = preferred_quote
+                    # Escape the quote character in the value
+                    escaped_value = attr.value.replace(quote, f"\\{quote}")
+                    self.write(f"={quote}{escaped_value}{quote}")
+                    continue
+
                 self.write(f"={quote}{attr.value}{quote}")
 
         if self.options.self_closing_slash:
@@ -193,7 +396,9 @@ class Formatter(ast_nodes.ASTVisitor):
         else:
             self.write(">")
 
-        self.writeln()
+        # Only add newline if not in inline context
+        if self.inline_context_depth == 0:
+            self.writeln()
 
     def visit_DocType(self, node):
         """Format a DOCTYPE declaration."""
@@ -461,17 +666,17 @@ class Formatter(ast_nodes.ASTVisitor):
         if node.context_vars:
             var_assignments = []
             for key, value in node.context_vars.items():
-                # Format the value expression (use str() to convert Expression to string)
-                value_str = str(value)
-                var_assignments.append(f"{key}={value_str}")
+                # Format the value expression - repr() works because AST nodes have proper __repr__
+                var_assignments.append(f"{key}={value!r}")
             parts.append("with " + " ".join(var_assignments))
 
         tag_content = " ".join(parts)
 
+        # Use write() instead of writeln() - surrounding TextNodes have the newlines
         if self.options.space_in_template_tags:
-            self.writeln(f"{{% {tag_content} %}}")
+            self.write(f"{{% {tag_content} %}}")
         else:
-            self.writeln(f"{{%{tag_content}%}}")
+            self.write(f"{{%{tag_content}%}}")
 
     def visit_ExtendsTag(self, node: ast_nodes.ExtendsTag):
         """Format an extends tag."""
@@ -636,158 +841,161 @@ class Formatter(ast_nodes.ASTVisitor):
 
     def visit_SingleTag(self, node):
         """Format a generic single tag."""
-
+        # Use write() instead of writeln() to avoid adding extra newlines
+        # The surrounding TextNodes will have the newlines if needed
         if self.options.space_in_template_tags:
             if node.raw_content:
-                self.writeln(f"{{% {node.tag_name} {node.raw_content} %}}")
+                self.write(f"{{% {node.tag_name} {node.raw_content} %}}")
             else:
-                self.writeln(f"{{% {node.tag_name} %}}")
+                self.write(f"{{% {node.tag_name} %}}")
         else:
             if node.raw_content:
-                self.writeln(f"{{%{node.tag_name} {node.raw_content}%}}")
+                self.write(f"{{%{node.tag_name} {node.raw_content}%}}")
             else:
-                self.writeln(f"{{%{node.tag_name}%}}")
+                self.write(f"{{%{node.tag_name}%}}")
 
     def visit_GenericBlockTag(self, node):
         """Format a generic block tag."""
 
+        # Determine if this should be inline or block formatting
+        has_block_children = any(
+            isinstance(
+                child,
+                (
+                    ast_nodes.HTMLElement,
+                    ast_nodes.IfBlock,
+                    ast_nodes.ForBlock,
+                    ast_nodes.BlockTag,
+                ),
+            )
+            for child in node.children
+        )
+
         # Opening tag
-        if self.options.space_in_template_tags:
-            if node.raw_args:
-                self.writeln(f"{{% {node.tag_name} {node.raw_args} %}}")
+        if has_block_children:
+            # Block formatting - add newlines
+            if self.options.space_in_template_tags:
+                if node.raw_args:
+                    self.writeln(f"{{% {node.tag_name} {node.raw_args} %}}")
+                else:
+                    self.writeln(f"{{% {node.tag_name} %}}")
             else:
-                self.writeln(f"{{% {node.tag_name} %}}")
-        else:
-            if node.raw_args:
-                self.writeln(f"{{%{node.tag_name} {node.raw_args}%}}")
+                if node.raw_args:
+                    self.writeln(f"{{%{node.tag_name} {node.raw_args}%}}")
+                else:
+                    self.writeln(f"{{%{node.tag_name}%}}")
+
+            # Children
+            self._increase_indent()
+            for child in node.children:
+                self.visit(child)
+            self._decrease_indent()
+
+            # Closing tag
+            if self.options.space_in_template_tags:
+                self.writeln(f"{{% end{node.tag_name} %}}")
             else:
-                self.writeln(f"{{%{node.tag_name}%}}")
-
-        # Children
-        self._increase_indent()
-        for child in node.children:
-            self.visit(child)
-        self._decrease_indent()
-
-        # Closing tag
-        if self.options.space_in_template_tags:
-            self.writeln(f"{{% end{node.tag_name} %}}")
+                self.writeln(f"{{%end{node.tag_name}%}}")
         else:
-            self.writeln(f"{{%end{node.tag_name}%}}")
+            # Inline formatting - no newlines
+            if self.options.space_in_template_tags:
+                if node.raw_args:
+                    self.write(f"{{% {node.tag_name} {node.raw_args} %}}")
+                else:
+                    self.write(f"{{% {node.tag_name} %}}")
+            else:
+                if node.raw_args:
+                    self.write(f"{{%{node.tag_name} {node.raw_args}%}}")
+                else:
+                    self.write(f"{{%{node.tag_name}%}}")
+
+            # Children - output directly without indentation
+            for child in node.children:
+                if isinstance(child, ast_nodes.TextNode):
+                    self.output.append(child.content)
+                else:
+                    self.visit(child)
+
+            # Closing tag
+            if self.options.space_in_template_tags:
+                self.write(f"{{% end{node.tag_name} %}}")
+            else:
+                self.write(f"{{%end{node.tag_name}%}}")
 
     def visit_CommentBlock(self, node):
         """Format a comment block."""
-
         if self.options.space_in_template_tags:
-            self.writeln("{% comment %}")
+            opening = "{% comment %}"
+            closing = "{% endcomment %}"
         else:
-            self.writeln("{%comment%}")
+            opening = "{%comment%}"
+            closing = "{%endcomment%}"
 
-        self._increase_indent()
-        for child in node.children:
-            self.visit(child)
-        self._decrease_indent()
-
-        if self.options.space_in_template_tags:
-            self.writeln("{% endcomment %}")
-        else:
-            self.writeln("{%endcomment%}")
+        self._format_block_tag(node, opening, closing)
 
     def visit_IfChangedBlock(self, node):
         """Format an ifchanged block."""
-
         if self.options.space_in_template_tags:
             if node.watch_expressions:
                 watch = " ".join(str(e) for e in node.watch_expressions)
-                self.writeln(f"{{% ifchanged {watch} %}}")
+                opening = f"{{% ifchanged {watch} %}}"
             else:
-                self.writeln("{% ifchanged %}")
+                opening = "{% ifchanged %}"
+            closing = "{% endifchanged %}"
         else:
             if node.watch_expressions:
                 watch = " ".join(str(e) for e in node.watch_expressions)
-                self.writeln(f"{{%ifchanged {watch}%}}")
+                opening = f"{{%ifchanged {watch}%}}"
             else:
-                self.writeln("{%ifchanged%}")
+                opening = "{%ifchanged%}"
+            closing = "{%endifchanged%}"
 
-        self._increase_indent()
-        for child in node.children:
-            self.visit(child)
-        self._decrease_indent()
-
-        if self.options.space_in_template_tags:
-            self.writeln("{% endifchanged %}")
-        else:
-            self.writeln("{%endifchanged%}")
+        self._format_block_tag(node, opening, closing)
 
     def visit_FilterBlock(self, node):
         """Format a filter block."""
-
         if self.options.space_in_template_tags:
-            self.writeln(f"{{% filter {node.filter_name} %}}")
+            opening = f"{{% filter {node.filter_name} %}}"
+            closing = "{% endfilter %}"
         else:
-            self.writeln(f"{{%filter {node.filter_name}%}}")
+            opening = f"{{%filter {node.filter_name}%}}"
+            closing = "{%endfilter%}"
 
-        self._increase_indent()
-        for child in node.children:
-            self.visit(child)
-        self._decrease_indent()
-
-        if self.options.space_in_template_tags:
-            self.writeln("{% endfilter %}")
-        else:
-            self.writeln("{%endfilter%}")
+        self._format_block_tag(node, opening, closing)
 
     def visit_SpacelessBlock(self, node):
         """Format a spaceless block."""
-
         if self.options.space_in_template_tags:
-            self.writeln("{% spaceless %}")
+            opening = "{% spaceless %}"
+            closing = "{% endspaceless %}"
         else:
-            self.writeln("{%spaceless%}")
+            opening = "{%spaceless%}"
+            closing = "{%endspaceless%}"
 
-        self._increase_indent()
-        for child in node.children:
-            self.visit(child)
-        self._decrease_indent()
-
-        if self.options.space_in_template_tags:
-            self.writeln("{% endspaceless %}")
-        else:
-            self.writeln("{%endspaceless%}")
+        self._format_block_tag(node, opening, closing)
 
     def visit_VerbatimBlock(self, node):
         """Format a verbatim block."""
-
         if self.options.space_in_template_tags:
-            self.writeln("{% verbatim %}")
+            opening = "{% verbatim %}"
+            closing = "{% endverbatim %}"
         else:
-            self.writeln("{%verbatim%}")
+            opening = "{%verbatim%}"
+            closing = "{%endverbatim%}"
 
-        # Write raw content without parsing
-        self.write(node.content)
-
-        if self.options.space_in_template_tags:
-            self.writeln("{% endverbatim %}")
-        else:
-            self.writeln("{%endverbatim%}")
+        # Verbatim uses raw content, not children
+        self._format_block_tag(node, opening, closing, format_children=False)
 
     def visit_AutoescapeBlock(self, node):
         """Format an autoescape block."""
-
         if self.options.space_in_template_tags:
-            self.writeln(f"{{% autoescape {node.mode} %}}")
+            opening = f"{{% autoescape {node.mode} %}}"
+            closing = "{% endautoescape %}"
         else:
-            self.writeln(f"{{%autoescape {node.mode}%}}")
+            opening = f"{{%autoescape {node.mode}%}}"
+            closing = "{%endautoescape%}"
 
-        self._increase_indent()
-        for child in node.children:
-            self.visit(child)
-        self._decrease_indent()
-
-        if self.options.space_in_template_tags:
-            self.writeln("{% endautoescape %}")
-        else:
-            self.writeln("{%endautoescape%}")
+        self._format_block_tag(node, opening, closing)
 
     def visit_Comment(self, node: ast_nodes.Comment):
         """Format a template comment."""
@@ -798,10 +1006,10 @@ class Formatter(ast_nodes.ASTVisitor):
         """Format a condition to string."""
         if isinstance(condition, ast_nodes.SimpleCondition):
             not_str = "not " if condition.negated else ""
-            return f"{not_str}{condition.expression}"
+            return f"{not_str}{condition.expression!r}"
 
         elif isinstance(condition, ast_nodes.Comparison):
-            return f"{condition.left} {condition.operator} {condition.right}"
+            return f"{condition.left!r} {condition.operator} {condition.right!r}"
 
         elif isinstance(condition, ast_nodes.BooleanOp):
             parts = [self._format_condition(c) for c in condition.operands]

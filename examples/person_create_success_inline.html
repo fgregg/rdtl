@@ -1,13 +1,10 @@
 {% load i18n %}
 <script>
-    
 // Update the multiselect widget with the newly created person
 const widgetId = '{{ widget_id }}';
 const personId = '{{ person.id }}';
 const personName = '{{ person|escapejs }}';
-const personType = '{% if person.person_type != Literal('worker') %}
-        {{ person.get_person_type_display }}{% endif %}
-    ';
+const personType = '{% if person.person_type != "worker" %}{{ person.get_person_type_display }}{% endif %}';
 
 // Use the existing addElement function from the widget
 if (typeof addElement === 'function') {
@@ -28,8 +25,7 @@ if (resultsDiv) {
 
 // Show a brief success message
 const successMessage = document.createElement('div');
-successMessage.innerHTML = '{% trans ✓ Person created successfully! %}
-    ';
+successMessage.innerHTML = '{% trans "✓ Person created successfully!" %}';
 successMessage.className = 'success-message';
 
 const searchInput = document.getElementById(widgetId + '_search');

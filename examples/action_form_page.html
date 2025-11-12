@@ -1,57 +1,67 @@
 {% extends "base.html" %}
 {% load wagtailcore_tags static i18n %}
-{% block title %}
-    {{ page.title }} - CFFWU Organizing{% endblock title %}
+
+{% block title %}{{ page.title }} - CFFWU Organizing{% endblock %}
+
 {% block extra_head %}
-    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js" integrity="sha384-ZBXiYtYQ6hJ2Y0ZNoYuI+Nq5MqWBr+chMrS/RkXpNzQCApHEhOt2aY8EJgqwHLkJ" crossorigin="anonymous"></script>
-{% endblock extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js"
+    integrity="sha384-ZBXiYtYQ6hJ2Y0ZNoYuI+Nq5MqWBr+chMrS/RkXpNzQCApHEhOt2aY8EJgqwHLkJ"
+    crossorigin="anonymous"></script>
+{% endblock %}
+
 {% block content %}
-    <div class="container">
-        <h1>{{ page.title }}</h1>
-        {% if page.intro %}
-            <div class="intro">
+<div class="container">
+    <h1>{{ page.title }}</h1>
+
+    {% if page.intro %}
+    <div class="intro">
         {{ page.intro|richtext }}
     </div>
-        {% endif %}
-        <div class="card">
-            <form id="action-form" method="post">
-                {% csrf_token %}
-                {% if form.errors %}
-                    <div class="alert alert-error">
-                        <strong>{% trans Please correct the errors below: %}
-</strong>
-                    </div>
+    {% endif %}
+
+    <div class="card">
+        <form id="action-form" method="post">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="alert alert-error">
+                <strong>{% trans "Please correct the errors below:" %}</strong>
+            </div>
+            {% endif %}
+
+            {% for field in form %}
+            {% if not field.field.edit_only %}
+            <div class="form-field">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}:{% if field.field.required %}<span class="required-indicator">*</span>{% endif %}
+                </label>
+
+                {% if field.name == 'location' %}
+                <div class="autocomplete-wrapper">
+                    {{ field }}
+                    <div id="autocomplete-results" class="autocomplete-results hidden"></div>
+                </div>
+                {% else %}
+                {{ field }}
                 {% endif %}
-                {% for field in form %}
-                    {% if not field.field.edit_only %}
-                        <div class="form-field">
-                            <label for="{{ field.id_for_label }}">
-                                {{ field.label }}:{% if field.field.required %}
-                                    <span class="required-indicator">*</span>
-                                {% endif %}
-                            </label>
-                            {% if field.name == Literal('location') %}
-                                <div class="autocomplete-wrapper">
-                                    {{ field }}<div id="autocomplete-results" class="autocomplete-results hidden"></div>
-                                </div>
-                            {% else %}
-                                {{ field }}{% endif %}
-                            {% if field.help_text %}
-                                <div class="help-text">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% if field.errors %}
-                                <ul class="errorlist">
-                                    {% for error in field.errors %}
-                                        <li>{{ error }}</li>
-                                    {% endfor %}
-                                </ul>
-                            {% endif %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
-                <button type="submit" id="submit-action-btn" class="btn btn-primary">{% trans Submit Action %}
-</button>
-            </form>
-        </div>
+
+                {% if field.help_text %}
+                <div class="help-text">{{ field.help_text }}</div>
+                {% endif %}
+
+                {% if field.errors %}
+                <ul class="errorlist">
+                    {% for error in field.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            <button type="submit" id="submit-action-btn" class="btn btn-primary">{% trans "Submit Action" %}</button>
+        </form>
     </div>
-{% endblock content %}
+</div>
+{% endblock %}

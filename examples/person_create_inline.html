@@ -2,71 +2,72 @@
 <div class="inline-form-card person-create-form-inline">
     <div class="inline-form-header">
         <h3>
-            {% trans Create New %}
-            {% if person_type == Literal('worker') %}
-                {% trans Worker %}
-            {% elif person_type == Literal('manager') %}
-                {% trans Manager %}
-            {% elif person_type == Literal('owner') %}
-                {% trans Owner %}
+            {% trans "Create New" %}
+            {% if person_type == 'worker' %}
+                {% trans "Worker" %}
+            {% elif person_type == 'manager' %}
+                {% trans "Manager" %}
+            {% elif person_type == 'owner' %}
+                {% trans "Owner" %}
             {% else %}
-                {% trans Person %}
+                {% trans "Person" %}
             {% endif %}
         </h3>
-        <button type="button" class="close-inline-form" hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
-                             document.getElementById('{{ widget_id }}_search').focus();" aria-label="Close form">×</button>
+        <button type="button"
+                class="close-inline-form"
+                hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
+                             document.getElementById('{{ widget_id }}_search').focus();"
+                aria-label="Close form">×</button>
     </div>
     {% if initial_query %}
         <div class="alert alert-info">
-            {% trans Creating person for: %}
-            <strong>{{ initial_query }}</strong>
+            {% trans "Creating person for:" %} <strong>{{ initial_query }}</strong>
         </div>
     {% endif %}
     {% if form.non_field_errors %}
         <div class="alert alert-error">
-            <strong>{% trans Please correct the following errors: %}
-</strong>
+            <strong>{% trans "Please correct the following errors:" %}</strong>
             <ul class="form-error-list">
-                {% for error in form.non_field_errors %}
-                    <li>{{ error }}</li>
-                {% endfor %}
+                {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
             </ul>
         </div>
     {% endif %}
-    <form hx-post="{% url 'person_create_inline' %}" hx-target="#{{ widget_id }}_inline_form" hx-swap="innerHTML" hx-vals="{"widget_id": "{{ widget_id }}"}" class="grid form-gap-default">
+    <form hx-post="{% url 'person_create_inline' %}"
+          hx-target="#{{ widget_id }}_inline_form"
+          hx-swap="innerHTML"
+          hx-vals='{"widget_id": "{{ widget_id }}"}'
+          class="grid form-gap-default">
         {% csrf_token %}
-        <!--  Hidden field to pass person_type  -->
-        <input type="hidden" name="person_type" value="{{ person_type }}" />
+        <!-- Hidden field to pass person_type -->
+        <input type="hidden" name="person_type" value="{{ person_type }}">
         <div class="grid form-grid-equal-col">
             <div class="form-field">
                 <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }} *</label>
-                {{ form.first_name }}{% if form.first_name.errors %}
+                {{ form.first_name }}
+                {% if form.first_name.errors %}
                     <div class="error">
-                        {% for error in form.first_name.errors %}
-                            {{ error }}{% endfor %}
+                        {% for error in form.first_name.errors %}{{ error }}{% endfor %}
                     </div>
                 {% endif %}
-                <div class="help-text">{% trans Person's given name %}
-</div>
+                <div class="help-text">{% trans "Person's given name" %}</div>
             </div>
             <div class="form-field">
                 <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }} *</label>
-                {{ form.last_name }}{% if form.last_name.errors %}
+                {{ form.last_name }}
+                {% if form.last_name.errors %}
                     <div class="error">
-                        {% for error in form.last_name.errors %}
-                            {{ error }}{% endfor %}
+                        {% for error in form.last_name.errors %}{{ error }}{% endfor %}
                     </div>
                 {% endif %}
-                <div class="help-text">{% trans Person's family name %}
-</div>
+                <div class="help-text">{% trans "Person's family name" %}</div>
             </div>
         </div>
         <div class="inline-form-actions">
-            <button type="submit" class="btn btn-success">{% trans Create Person %}
-</button>
-            <button type="button" class="btn btn-secondary" hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
-                                 document.getElementById('{{ widget_id }}_search').focus();">{% trans Cancel %}
-</button>
+            <button type="submit" class="btn btn-success">{% trans "Create Person" %}</button>
+            <button type="button"
+                    class="btn btn-secondary"
+                    hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
+                                 document.getElementById('{{ widget_id }}_search').focus();">{% trans "Cancel" %}</button>
         </div>
     </form>
 </div>

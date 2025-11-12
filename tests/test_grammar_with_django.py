@@ -31,14 +31,8 @@ if not settings.configured:
     )
     django.setup()
 
-# Check if hypothesis[lark] is available
-try:
-    from hypothesis.extra.lark import from_lark
-    from lark import Lark
-
-    LARK_GENERATION_AVAILABLE = True
-except (ImportError, AttributeError):
-    LARK_GENERATION_AVAILABLE = False
+from hypothesis.extra.lark import from_lark
+from lark import Lark
 
 
 def get_template_strategy():
@@ -97,9 +91,6 @@ def compare_parsers(template_str: str) -> dict[str, bool | str | None]:
     return result
 
 
-@pytest.mark.skipif(
-    not LARK_GENERATION_AVAILABLE, reason="hypothesis[lark] not available"
-)
 @pytest.mark.slow
 @given(st.data())
 @hypothesis_settings(max_examples=50, deadline=None)
@@ -138,9 +129,6 @@ def test_generated_templates_match_django(data):
     # (some restrictions might be intentional)
 
 
-@pytest.mark.skipif(
-    not LARK_GENERATION_AVAILABLE, reason="hypothesis[lark] not available"
-)
 @pytest.mark.slow
 @given(st.data())
 @hypothesis_settings(max_examples=20, deadline=None)

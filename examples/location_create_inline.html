@@ -1,87 +1,87 @@
 {% load static i18n %}
 <div class="inline-form-card location-create-form-inline">
     <div class="inline-form-header">
-        <h3>{% trans Create New Location %}
-</h3>
-        <button type="button" class="close-inline-form" hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
-                             document.getElementById('{{ widget_id }}_display').focus();" aria-label="Close form">×</button>
+        <h3>{% trans "Create New Location" %}</h3>
+        <button type="button"
+                class="close-inline-form"
+                hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
+                             document.getElementById('{{ widget_id }}_display').focus();"
+                aria-label="Close form">×</button>
     </div>
     {% if initial_query %}
         <div class="alert alert-info">
-            {% trans Creating location for: %}
-            <strong>{{ initial_query }}</strong>
+            {% trans "Creating location for:" %} <strong>{{ initial_query }}</strong>
         </div>
     {% endif %}
     {% if form.non_field_errors %}
         <div class="alert alert-error">
-            <strong>{% trans Please correct the following errors: %}
-</strong>
+            <strong>{% trans "Please correct the following errors:" %}</strong>
             <ul class="form-error-list">
-                {% for error in form.non_field_errors %}
-                    <li>{{ error }}</li>
-                {% endfor %}
+                {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
             </ul>
         </div>
     {% endif %}
-    <form hx-post="{% url 'location_create_inline' %}" hx-target="#{{ widget_id }}_inline_form" hx-swap="innerHTML" hx-vals="{"widget_id": "{{ widget_id }}"}" class="grid form-gap-default">
+    <form hx-post="{% url 'location_create_inline' %}"
+          hx-target="#{{ widget_id }}_inline_form"
+          hx-swap="innerHTML"
+          hx-vals='{"widget_id": "{{ widget_id }}"}'
+          class="grid form-gap-default">
         {% csrf_token %}
         <div class="form-field">
             <label for="{{ form.brand.id_for_label }}">{{ form.brand.label }} *</label>
-            {{ form.brand }}{% if form.brand.errors %}
+            {{ form.brand }}
+            {% if form.brand.errors %}
                 <div class="error">
-                    {% for error in form.brand.errors %}
-                        {{ error }}{% endfor %}
+                    {% for error in form.brand.errors %}{{ error }}{% endfor %}
                 </div>
             {% endif %}
-            <div class="help-text">{% trans Choose the restaurant/business brand %}
-</div>
+            <div class="help-text">{% trans "Choose the restaurant/business brand" %}</div>
         </div>
         <div class="form-field">
             <label for="{{ form.address.id_for_label }}">{{ form.address.label }} *</label>
-            {{ form.address }}{% if form.address.errors %}
+            {{ form.address }}
+            {% if form.address.errors %}
                 <div class="error">
-                    {% for error in form.address.errors %}
-                        {{ error }}{% endfor %}
+                    {% for error in form.address.errors %}{{ error }}{% endfor %}
                 </div>
             {% endif %}
-            <div class="help-text">{% trans Full street address %}
-</div>
+            <div class="help-text">{% trans "Full street address" %}</div>
         </div>
         <div class="form-field">
             <label for="{{ form.city.id_for_label }}">{{ form.city.label }} *</label>
-            {{ form.city }}{% if form.city.errors %}
+            {{ form.city }}
+            {% if form.city.errors %}
                 <div class="error">
-                    {% for error in form.city.errors %}
-                        {{ error }}{% endfor %}
+                    {% for error in form.city.errors %}{{ error }}{% endfor %}
                 </div>
             {% endif %}
         </div>
         <div class="grid form-grid-two-col">
             <div class="form-field">
                 <label for="{{ form.state.id_for_label }}">{{ form.state.label }} *</label>
-                {{ form.state }}{% if form.state.errors %}
+                {{ form.state }}
+                {% if form.state.errors %}
                     <div class="error">
-                        {% for error in form.state.errors %}
-                            {{ error }}{% endfor %}
+                        {% for error in form.state.errors %}{{ error }}{% endfor %}
                     </div>
                 {% endif %}
             </div>
             <div class="form-field">
                 <label for="{{ form.zip_code.id_for_label }}">{{ form.zip_code.label }} *</label>
-                {{ form.zip_code }}{% if form.zip_code.errors %}
+                {{ form.zip_code }}
+                {% if form.zip_code.errors %}
                     <div class="error">
-                        {% for error in form.zip_code.errors %}
-                            {{ error }}{% endfor %}
+                        {% for error in form.zip_code.errors %}{{ error }}{% endfor %}
                     </div>
                 {% endif %}
             </div>
         </div>
         <div class="inline-form-actions">
-            <button type="submit" class="btn btn-success">{% trans Create Location %}
-</button>
-            <button type="button" class="btn btn-secondary" hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
-                                 document.getElementById('{{ widget_id }}_display').focus();">{% trans Cancel %}
-</button>
+            <button type="submit" class="btn btn-success">{% trans "Create Location" %}</button>
+            <button type="button"
+                    class="btn btn-secondary"
+                    hx-on:click="document.getElementById('{{ widget_id }}_inline_form').innerHTML = '';
+                                 document.getElementById('{{ widget_id }}_display').focus();">{% trans "Cancel" %}</button>
         </div>
     </form>
 </div>

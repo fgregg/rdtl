@@ -9,6 +9,7 @@ Usage:
     rdtl-fmt template.html --check          # Check if formatted
     rdtl-fmt template.html --write          # Format in-place
     rdtl-fmt templates/*.html --write       # Format multiple files
+    cat template.html | rdtl-fmt            # Read from stdin
 """
 
 import sys
@@ -97,7 +98,7 @@ def format_file(
 
 @click.command()
 @click.argument(
-    "files", nargs=-1, required=True, type=click.Path(exists=True, path_type=Path)
+    "files", nargs=-1, required=False, type=click.Path(exists=True, path_type=Path)
 )
 @click.option(
     "--check", is_flag=True, help="Check if files are formatted (exit non-zero if not)"
@@ -154,6 +155,7 @@ def main(
       rdtl-fmt template.html --check          # Check if formatted
       rdtl-fmt templates/*.html --write       # Format multiple files
       rdtl-fmt template.html --compact        # Use compact style
+      cat template.html | rdtl-fmt            # Read from stdin
 
     \b
     Formatting Options:
@@ -161,6 +163,60 @@ def main(
       Use --compact for minimal whitespace (2-space indent, no spaces in tags).
       Use --tabs for tab indentation instead of spaces.
     """
+    # Handle stdin when no files provided
+    if not files:
+        if check or write:
+            raise click.UsageError(
+                "--check and --write are not supported with stdin input"
+            )
+        content = sys.stdin.read()
+
+        # Validate
+        is_valid, errors = validate_template(content, strict_html=True)
+        if not is_valid:
+            click.echo(click.style("❌ Invalid RDTL template", fg="red"), err=True)
+            for error in errors:
+                click.echo(f"   {error}", err=True)
+            sys.exit(1)
+
+        # Format
+        try:
+            # Build formatting options (copied from below)
+            if compact:
+                options = FormatOptions(
+                    indent_size=indent or 2,
+                    use_tabs=tabs,
+                    space_in_template_tags=False,
+                    space_in_variables=False,
+                    quotes=quotes,
+                    self_closing_slash=not no_self_closing_slash,
+                )
+            elif verbose_style:
+                options = FormatOptions(
+                    indent_size=indent or 4,
+                    use_tabs=tabs,
+                    space_in_template_tags=True,
+                    space_in_variables=True,
+                    blank_line_before_block=True,
+                    blank_line_after_block=True,
+                    quotes=quotes,
+                    self_closing_slash=not no_self_closing_slash,
+                )
+            else:
+                options = FormatOptions(
+                    indent_size=indent or 4,
+                    use_tabs=tabs,
+                    quotes=quotes,
+                    self_closing_slash=not no_self_closing_slash,
+                )
+
+            formatted = format_template(content, options)
+            click.echo(formatted, nl=False)
+            sys.exit(0)
+        except Exception as e:
+            click.echo(click.style(f"❌ Formatting error: {e}", fg="red"), err=True)
+            sys.exit(1)
+
     # Validate mutually exclusive options
     if check and write:
         raise click.UsageError("--check and --write are mutually exclusive")

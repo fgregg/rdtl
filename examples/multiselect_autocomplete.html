@@ -1,32 +1,54 @@
 {% load static %}
-<div class="multiselect-container" id="{{ widget.attrs.id }}_container">
-    <!--  Hidden input to track selected IDs for HTMX  -->
-    <input type="hidden" name="excluded_ids" data-selected-ids="{{ widget.attrs.id }}" id="{{ widget.attrs.id }}_excluded_ids" value="{% for item in widget.selected_items %}{{ item.id }}{% if not forloop.last %},{% endif %}{% endfor %}" />
-    <!--  Selected items display  -->
+<div class="multiselect-container"
+     id="{{ widget.attrs.id }}_container">
+    <!-- Hidden input to track selected IDs for HTMX -->
+    <input type="hidden"
+           name="excluded_ids"
+           data-selected-ids="{{ widget.attrs.id }}"
+           id="{{ widget.attrs.id }}_excluded_ids"
+           value="{% for item in widget.selected_items %}{{ item.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
+
+    <!-- Selected items display -->
     <div class="selected-items" id="{{ widget.attrs.id }}_selected" data-testid="{{ widget.attrs.id }}_selected">
         {% for item in widget.selected_items %}
             <div class="item-tag" data-id="{{ item.id }}" data-testid="{{ widget.attrs.id }}-selected-item">
                 <span>{{ item.label }}</span>
-                <button type="button" class="remove-item" data-testid="{{ widget.attrs.id }}-remove-item-{{ item.id }}" onclick="removeElement({{ item.id }}, '{{ widget.attrs.id }}')" aria-label="Remove {{ item.label|escapejs }}">×</button>
+                <button type="button"
+                        class="remove-item"
+                        data-testid="{{ widget.attrs.id }}-remove-item-{{ item.id }}"
+                        onclick="removeElement({{ item.id }}, '{{ widget.attrs.id }}')"
+                        aria-label="Remove {{ item.label|escapejs }}">×</button>
             </div>
         {% endfor %}
     </div>
-    <!--  Search input  -->
+
+    <!-- Search input -->
     <div class="multiselect-search-input">
-        <input type="text" name="q" id="{{ widget.attrs.id }}_search" placeholder="{{ widget.placeholder }}" hx-get="{{ widget.search_url }}" hx-trigger="input changed delay:300ms, focus" hx-target="#{{ widget.attrs.id }}_results" hx-swap="innerHTML" hx-vals="{"widget_id": "{{ widget.attrs.id }}"{% for key, value in widget.search_params.items %}, "{{ key }}": "{{ value }}"{% endfor %}}" hx-include="[data-selected-ids='{{ widget.attrs.id }}']" autocomplete="off" />
-        <!--  Results container  -->
+        <input type="text"
+               name="q"
+               id="{{ widget.attrs.id }}_search"
+               placeholder="{{ widget.placeholder }}"
+               hx-get="{{ widget.search_url }}"
+               hx-trigger="input changed delay:300ms, focus"
+               hx-target="#{{ widget.attrs.id }}_results"
+               hx-swap="innerHTML"
+               hx-vals='{"widget_id": "{{ widget.attrs.id }}"{% for key, value in widget.search_params.items %}, "{{ key }}": "{{ value }}"{% endfor %}}'
+               hx-include="[data-selected-ids='{{ widget.attrs.id }}']"
+               autocomplete="off">
+        <!-- Results container -->
         <div id="{{ widget.attrs.id }}_results" class="multiselect-results"></div>
-        <!--  Inline form container  -->
+
+        <!-- Inline form container -->
         {% if widget.create_url %}
             <div id="{{ widget.attrs.id }}_inline_form" class="autocomplete-inline-form"></div>
         {% endif %}
     </div>
 </div>
-{#  Hidden select element - this is what actually gets submitted  #}
-<div style="display: none;">{% include "django/forms/widgets/select.html" %}
-</div>
+
+{# Hidden select element - this is what actually gets submitted #}
+<div style="display: none;">{% include "django/forms/widgets/select.html" %}</div>
+
 <script>
-    
 function updateSelectedIds(widgetId) {
     const container = document.getElementById(widgetId + '_selected');
     const hiddenInput = document.getElementById(widgetId + '_excluded_ids');
@@ -67,8 +89,7 @@ function addElement(elementId, displayText, widgetId) {
     tag.setAttribute('data-testid', `${widgetId}-selected-item`);
     tag.innerHTML = `
         <span>${displayText}</span>
-    <button type="button" class="remove-item" data-testid="${widgetId}-remove-item-${elementId}" onclick="removeElement(${elementId}, '${widgetId}')" aria-label="Remove ${displayText}">×</button>
-    
+        <button type="button" class="remove-item" data-testid="${widgetId}-remove-item-${elementId}" onclick="removeElement(${elementId}, '${widgetId}')" aria-label="Remove ${displayText}">×</button>
     `;
     container.appendChild(tag);
 

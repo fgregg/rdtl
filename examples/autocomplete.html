@@ -1,16 +1,33 @@
 {% load static %}
 <div class="autocomplete-container">
-    <!--  Hidden input for the actual value (ID)  -->
-    <input type="hidden" name="{{ widget.name }}" id="{{ widget.attrs.id }}" value="{{ widget.value|default:'' }}" />
-    <!--  Visible input for search/display  -->
-    <input type="text" id="{{ widget.attrs.id }}_display" value="{{ widget.display_value }}" placeholder="{{ widget.placeholder|default:'Type to search...' }}" name="q" hx-get="{{ widget.search_url }}" hx-trigger="input changed delay:300ms, focus" hx-target="#{{ widget.attrs.id }}_results" hx-swap="innerHTML" hx-vals="{"widget_id": "{{ widget.attrs.id }}"{% for key, value in widget.search_params.items %}, "{{ key }}": "{{ value }}"{% endfor %}}" autocomplete="off" class="autocomplete-input" />
-    <!--  Results container  -->
-    <div id="{{ widget.attrs.id }}_results" class="autocomplete-results autocomplete-results-positioned"></div>
-    <!--  Inline form container (for location creation)  -->
+    <!-- Hidden input for the actual value (ID) -->
+    <input type="hidden"
+           name="{{ widget.name }}"
+           id="{{ widget.attrs.id }}"
+           value="{{ widget.value|default:'' }}">
+    <!-- Visible input for search/display -->
+    <input type="text"
+           id="{{ widget.attrs.id }}_display"
+           value="{{ widget.display_value }}"
+           placeholder="{{ widget.placeholder|default:'Type to search...' }}"
+           name="q"
+           hx-get="{{ widget.search_url }}"
+           hx-trigger="input changed delay:300ms, focus"
+           hx-target="#{{ widget.attrs.id }}_results"
+           hx-swap="innerHTML"
+           hx-vals='{"widget_id": "{{ widget.attrs.id }}"{% for key, value in widget.search_params.items %}, "{{ key }}": "{{ value }}"{% endfor %}}'
+           autocomplete="off"
+           class="autocomplete-input">
+    <!-- Results container -->
+    <div id="{{ widget.attrs.id }}_results"
+         class="autocomplete-results autocomplete-results-positioned"></div>
+    <!-- Inline form container (for location creation) -->
     {% if widget.create_url %}
-        <div id="{{ widget.attrs.id }}_inline_form" class="autocomplete-inline-form"></div>
+        <div id="{{ widget.attrs.id }}_inline_form"
+             class="autocomplete-inline-form"></div>
     {% endif %}
 </div>
+
 <script>
 function selectSingle(itemId, itemText, widgetId) {
     // Set the hidden input value (the actual form field)

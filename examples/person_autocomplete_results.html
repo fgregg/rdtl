@@ -1,15 +1,18 @@
 {% load i18n %}
 {% if results %}
     {% for person in results %}
-        <div class="autocomplete-item autocomplete-item-clickable" data-id="{{ person.id }}" data-text="{{ person }}" hx-on:click="document.getElementById('{{ widget_id }}').value = this.dataset.id;
+        <div class="autocomplete-item autocomplete-item-clickable"
+             data-id="{{ person.id }}"
+             data-text="{{ person }}"
+             hx-on:click="document.getElementById('{{ widget_id }}').value = this.dataset.id;
                           document.getElementById('{{ widget_id }}_display').value = this.textContent.trim();
                           this.parentElement.innerHTML = '';">
-            {{ person }}{% if person.person_type != Literal('worker') %}
+            {{ person }}
+            {% if person.person_type != 'worker' %}
                 <span class="person-type-indicator">({{ person.get_person_type_display }})</span>
             {% endif %}
         </div>
     {% endfor %}
 {% else %}
-    <div class="autocomplete-no-results">{% trans No persons found %}
-</div>
+    <div class="autocomplete-no-results">{% trans "No persons found" %}</div>
 {% endif %}

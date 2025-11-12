@@ -79,6 +79,9 @@ class HTMLElement(ASTNode):
     attributes: list[Attribute] = field(default_factory=list)
     children: list[ASTNode] = field(default_factory=list)
     self_closing: bool = False
+    raw_content: str | None = (
+        None  # Original raw content for special tags like <script>
+    )
 
     def __repr__(self) -> str:
         attrs = f", attrs={len(self.attributes)}" if self.attributes else ""
@@ -595,7 +598,11 @@ class Literal(ASTNode):
     type: str  # 'string', 'number', 'boolean'
 
     def __repr__(self) -> str:
-        return f"Literal({self.value!r})"
+        """Return the literal as it would appear in template syntax."""
+        if self.type == "string":
+            return repr(self.value)  # Adds quotes
+        else:
+            return str(self.value)  # Numbers and booleans as-is
 
 
 # ============================================================================

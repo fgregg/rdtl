@@ -873,7 +873,9 @@ class Lexer:
             comment.append(self.advance())
 
         self.tokens.append(
-            Token(TokenType.HTML_COMMENT, "".join(comment), start_line, start_col)
+            Token(
+                TokenType.HTML_COMMENT, "".join(comment).strip(), start_line, start_col
+            )
         )
 
     def tokenize_cdata(self):
@@ -1011,7 +1013,7 @@ class Lexer:
                 self.advance()  # #
                 self.advance()  # }
                 self.tokens.append(
-                    Token(TokenType.TEXT, "".join(text), self.line, self.column)
+                    Token(TokenType.TEXT, "".join(text).strip(), self.line, self.column)
                 )
                 self.add_token(TokenType.TEMPLATE_COMMENT_END, "#}")
                 return

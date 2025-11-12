@@ -1,21 +1,28 @@
 {% load i18n %}
 {% if results %}
     {% for establishment in results %}
-        <div class="autocomplete-item autocomplete-item-clickable" data-id="{{ establishment.id }}" data-text="{{ establishment }}" hx-on:click="document.getElementById('{{ widget_id }}').value = this.dataset.id;
+        <div class="autocomplete-item autocomplete-item-clickable"
+             data-id="{{ establishment.id }}"
+             data-text="{{ establishment }}"
+             hx-on:click="document.getElementById('{{ widget_id }}').value = this.dataset.id;
                           document.getElementById('{{ widget_id }}_display').value = this.textContent.trim();
                           this.parentElement.innerHTML = '';">{{ establishment }}</div>
     {% endfor %}
 {% else %}
-    <div class="autocomplete-no-results">{% trans No locations found %}
-</div>
+    <div class="autocomplete-no-results">{% trans "No locations found" %}</div>
 {% endif %}
-<!--  Always show "Create new location" option at the bottom  -->
-<div class="autocomplete-item autocomplete-create" data-action="create" hx-get="{% url 'location_create_form_inline' %}" hx-target="#{{ widget_id }}_inline_form" hx-swap="innerHTML" hx-vals="{"widget_id": "{{ widget_id }}"}" onclick="const query = document.getElementById('{{ widget_id }}_display').value;
+<!-- Always show "Create new location" option at the bottom -->
+<div class="autocomplete-item autocomplete-create"
+     data-action="create"
+     hx-get="{% url 'location_create_form_inline' %}"
+     hx-target="#{{ widget_id }}_inline_form"
+     hx-swap="innerHTML"
+     hx-vals='{"widget_id": "{{ widget_id }}"}'
+     onclick="const query = document.getElementById('{{ widget_id }}_display').value;
               this.setAttribute('hx-vals', JSON.stringify({
                 'widget_id': '{{ widget_id }}',
                 'q': query
               }));
               setTimeout(() => {
                 this.parentElement.innerHTML = '';
-              }, 100);">{% trans + Create new location %}
-</div>
+              }, 100);">{% trans "+ Create new location" %}</div>

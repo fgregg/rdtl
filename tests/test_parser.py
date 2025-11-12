@@ -347,7 +347,7 @@ def test_comment():
 
     comment = ast.children[0]
     assert isinstance(comment, ast_nodes.Comment)
-    assert comment.content == " This is a comment "
+    assert comment.content == "This is a comment"  # Lexer strips whitespace
 
 
 def test_complex_nested_structure():

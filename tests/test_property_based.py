@@ -12,6 +12,8 @@ from pathlib import Path
 import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
+from hypothesis.extra.lark import from_lark
+from lark import Lark
 
 from rdtl.formatter import format_template
 from rdtl.parser import parse
@@ -174,7 +176,7 @@ class TestValidatorProperties:
 
 
 # ============================================================================
-# Lark Comparison Tests (if Lark is available)
+# Lark Comparison Tests
 # ============================================================================
 #
 # NOTE: Nested quote tests have been moved to test_nested_quotes_property.py
@@ -185,15 +187,7 @@ class TestValidatorProperties:
 # custom Hypothesis strategies that generate these edge cases.
 # ============================================================================
 
-try:
-    from lark import Lark
 
-    LARK_AVAILABLE = True
-except ImportError:
-    LARK_AVAILABLE = False
-
-
-@pytest.mark.skipif(not LARK_AVAILABLE, reason="Lark not installed")
 class TestLarkComparison:
     """Compare manual parser with Lark-generated parser."""
 
@@ -201,9 +195,6 @@ class TestLarkComparison:
     def lark_parser(self):
         """Load Lark grammar."""
         grammar_file = Path(__file__).parent.parent / "src" / "rdtl" / "rdtl_lark.lark"
-        if not grammar_file.exists():
-            pytest.skip(f"Lark grammar not found: {grammar_file}")
-
         with open(grammar_file) as f:
             grammar = f.read()
 
@@ -244,17 +235,7 @@ class TestLarkComparison:
 # Grammar-Based Generation (Using hypothesis.extra.lark)
 # ============================================================================
 
-try:
-    from hypothesis.extra.lark import from_lark
 
-    LARK_GENERATION_AVAILABLE = True
-except ImportError:
-    LARK_GENERATION_AVAILABLE = False
-
-
-@pytest.mark.skipif(
-    not LARK_GENERATION_AVAILABLE, reason="hypothesis.extra.lark not available"
-)
 @pytest.mark.slow
 class TestGrammarGeneration:
     """Generate test cases directly from the RDTL grammar using Hypothesis."""
@@ -263,9 +244,6 @@ class TestGrammarGeneration:
     def get_template_strategy():
         """Create Hypothesis strategy from RDTL grammar."""
         grammar_file = Path(__file__).parent.parent / "src" / "rdtl" / "rdtl_lark.lark"
-        if not grammar_file.exists():
-            pytest.skip(f"Grammar file not found: {grammar_file}")
-
         with open(grammar_file) as f:
             grammar_text = f.read()
 
