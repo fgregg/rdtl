@@ -422,3 +422,44 @@ class TestEdgeCases:
         assert "Title" in issue_texts
         assert "Paragraph" in issue_texts
         assert "Button" in issue_texts
+
+
+class TestEmojiHandling:
+    """Test that emoji don't require translation."""
+
+    def test_single_emoji_not_flagged(self):
+        """Single emoji should not be flagged."""
+        template = "<button>✏️</button>"
+        issues = lint_template(template)
+        assert len(issues) == 0
+
+    def test_multiple_emoji_not_flagged(self):
+        """Multiple emoji should not be flagged."""
+        template = "<p>🎉 🎊 🎈</p>"
+        issues = lint_template(template)
+        assert len(issues) == 0
+
+    def test_emoji_with_text_is_flagged(self):
+        """Emoji mixed with text should be flagged."""
+        template = "<button>Edit ✏️</button>"
+        issues = lint_template(template)
+        assert len(issues) == 1
+        assert "Edit" in issues[0].text
+
+    def test_face_emoji_not_flagged(self):
+        """Face emoji should not be flagged."""
+        template = "<span>😀</span>"
+        issues = lint_template(template)
+        assert len(issues) == 0
+
+    def test_hand_emoji_not_flagged(self):
+        """Hand gesture emoji should not be flagged."""
+        template = "<span>👍</span>"
+        issues = lint_template(template)
+        assert len(issues) == 0
+
+    def test_flag_emoji_not_flagged(self):
+        """Flag emoji should not be flagged."""
+        template = "<span>🇺🇸</span>"
+        issues = lint_template(template)
+        assert len(issues) == 0

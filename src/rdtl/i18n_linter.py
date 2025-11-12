@@ -225,6 +225,34 @@ class I18nLinter:
         if re.match(r"^[\d\.\,\s\%\$\€\£\¥]+$", text):
             return
 
+        # Skip if it's only emoji (universal symbols that don't need translation)
+        # Emoji ranges: https://unicode.org/emoji/charts/full-emoji-list.html
+        # Main emoji blocks in Unicode:
+        # - Emoticons: 1F600-1F64F
+        # - Misc Symbols and Pictographs: 1F300-1F5FF
+        # - Transport and Map: 1F680-1F6FF
+        # - Supplemental Symbols: 1F900-1F9FF
+        # - Symbols and Pictographs Extended-A: 1FA70-1FAFF
+        # - Dingbats: 2700-27BF (includes ✏️)
+        # - Misc Symbols: 2600-26FF
+        # - Variation Selectors: FE00-FE0F (emoji presentation)
+        # - Regional indicators, keycaps, etc.
+        emoji_pattern = (
+            r"^[\s"
+            r"\U0001F300-\U0001F9FF"  # Main emoji blocks
+            r"\U00002600-\U000027BF"  # Misc symbols and dingbats
+            r"\U0001F000-\U0001F02F"  # Mahjong, domino tiles
+            r"\U0001FA70-\U0001FAFF"  # Extended pictographs
+            r"\U0001F100-\U0001F1FF"  # Enclosed characters
+            r"\U00002300-\U000023FF"  # Misc technical
+            r"\U00002B50-\U00002BFF"  # Misc symbols
+            r"\U0001F200-\U0001F251"  # Enclosed ideographic
+            r"\U0000FE00-\U0000FE0F"  # Variation selectors
+            r"]+$"
+        )
+        if re.match(emoji_pattern, text):
+            return
+
         # This is likely user-visible text that should be translated
         context = " > ".join(self.context_stack) if self.context_stack else "root"
         self.issues.append(

@@ -46,10 +46,10 @@ rdtl-fmt = "rdtl.cli:main"
 rdtl-i18n = "rdtl.i18n_cli:main"
 
 [project.urls]
-Homepage = "https://github.com/forestgregg/restricted_django_template"
-Documentation = "https://github.com/forestgregg/restricted_django_template/blob/main/README.md"
-Repository = "https://github.com/forestgregg/restricted_django_template"
-Issues = "https://github.com/forestgregg/restricted_django_template/issues"
+Homepage = "https://github.com/fgregg/rdtl"
+Documentation = "https://github.com/fgregg/rdtl/blob/main/README.md"
+Repository = "https://github.com/fgregg/rdtl"
+Issues = "https://github.com/fgregg/rdtl/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

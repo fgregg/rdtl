@@ -297,6 +297,17 @@ def main(
         if not ok:
             all_ok = False
 
+    # Show development notice if there were errors
+    if not all_ok:
+        click.echo(
+            "\n"
+            + click.style("Note: ", fg="yellow", bold=True)
+            + "This formatter is under active development. "
+            "If you believe an error is incorrect, please report it at:\n"
+            "https://github.com/fgregg/rdtl/issues",
+            err=True,
+        )
+
     # Exit code
     sys.exit(0 if all_ok else 1)
 

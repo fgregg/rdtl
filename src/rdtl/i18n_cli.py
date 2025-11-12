@@ -73,6 +73,14 @@ def main(files: tuple[Path, ...], verbose: bool):
                 else:
                     # i18n issues in cyan
                     click.echo(f"  • {issue}", err=True)
+            click.echo(
+                "\n"
+                + click.style("Note: ", fg="yellow", bold=True)
+                + "This i18n linter is under active development. "
+                "If you believe an error is incorrect, please report it at:\n"
+                "https://github.com/fgregg/rdtl/issues",
+                err=True,
+            )
             sys.exit(1)
         else:
             if verbose:
@@ -148,6 +156,14 @@ def main(files: tuple[Path, ...], verbose: bool):
 
         click.echo(
             f"\n❌ Found {', '.join(summary_parts)} in {files_with_issues} file(s)",
+            err=True,
+        )
+        click.echo(
+            "\n"
+            + click.style("Note: ", fg="yellow", bold=True)
+            + "This i18n linter is under active development. "
+            "If you believe an error is incorrect, please report it at:\n"
+            "https://github.com/fgregg/rdtl/issues",
             err=True,
         )
         sys.exit(1)
