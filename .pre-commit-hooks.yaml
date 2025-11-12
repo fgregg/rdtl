@@ -16,6 +16,7 @@
   types: [html]
   args: [--check]
   pass_filenames: true
+  require_serial: true
 
 - id: rdtl-i18n
   name: RDTL i18n Linter
@@ -24,3 +25,4 @@
   language: python
   types: [html]
   pass_filenames: true
+  require_serial: true
