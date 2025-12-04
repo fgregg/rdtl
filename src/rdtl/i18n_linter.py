@@ -211,18 +211,20 @@ class I18nLinter:
 
         # Skip if it's just whitespace, punctuation, or UI symbols
         # Includes: basic punctuation, arrows, bullets, math symbols, checkmarks, etc.
+        # Also includes / (slash) commonly used as separator like "5 / 10"
+        # and % (percent) which appears in numeric displays
         ui_symbols_pattern = (
-            r"^[\s\-\—\–\.\,\:\;\!\?\(\)\[\]\{\}\*"
+            r"^[\s\-\—\–\.\,\:\;\!\?\(\)\[\]\{\}\*\/"
             r"\←\→\↑\↓\«\»\‹\›\⇐\⇒\⟵\⟶"
             r"\×\✓\✗\✔\✘\•\◦\▪\▸\⋯\…"
-            r"\+\−\÷\±"
+            r"\+\−\÷\±\%"
             r"]*$"
         )
         if re.match(ui_symbols_pattern, text):
             return
 
-        # Skip if it's purely numeric
-        if re.match(r"^[\d\.\,\s\%\$\€\£\¥]+$", text):
+        # Skip if it's purely numeric (with common numeric punctuation)
+        if re.match(r"^[\d\.\,\s\%\$\€\£\¥\/\-\+]+$", text):
             return
 
         # Skip if it's only emoji (universal symbols that don't need translation)

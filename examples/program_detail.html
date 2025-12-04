@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ program.name }} - {% trans "CFFWU Organizing" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>{{ program.name }}</h1>
+
+    {% if program.description %}
+    <div class="intro" style="margin-bottom: 2rem;">
+        {{ program.description }}
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+        <a href="{% url 'program_create_event' program.slug %}" class="btn btn-primary">
+            {% trans "Submit Event" %}
+        </a>
+        <a href="{% url 'program_event_list' program.slug %}" class="btn btn-secondary">
+            {% trans "View All Events" %}
+        </a>
+    </div>
+
+    <!-- Universe Statistics -->
+    <div class="card" style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa;">
+        <h2 style="margin-bottom: 1rem; font-size: 1.2rem;">{% trans "Program Universe" %}</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+            <div>
+                <div style="font-size: 1.8rem; font-weight: bold; color: #0066cc;">
+                    {{ total_eligible_targets }}
+                </div>
+                <div style="color: #666; font-size: 0.9rem;">
+                    {% trans "Eligible Targets" %}
+                </div>
+            </div>
+            <div>
+                <div style="font-size: 1.8rem; font-weight: bold; color: #0066cc;">
+                    {{ total_eligible_members }}
+                </div>
+                <div style="color: #666; font-size: 0.9rem;">
+                    {% trans "Eligible Members" %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Statistics -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div class="card" style="text-align: center; padding: 1.5rem;">
+            <div style="font-size: 2rem; font-weight: bold; color: #0066cc; margin-bottom: 0.5rem;">
+                {{ unique_targets_reached }} / {{ total_eligible_targets }}
+            </div>
+            <div style="color: #666; margin-bottom: 0.5rem;">
+                {% trans "Targets Reached" %}
+            </div>
+            <div style="font-size: 0.9rem; color: #999;">
+                {{ target_reach_percentage }}% {% trans "of universe" %}
+            </div>
+        </div>
+        <div class="card" style="text-align: center; padding: 1.5rem;">
+            <div style="font-size: 2rem; font-weight: bold; color: #0066cc; margin-bottom: 0.5rem;">
+                {{ total_events }}
+            </div>
+            <div style="color: #666;">
+                {% blocktrans count counter=total_events %}
+                    Event Submitted
+                {% plural %}
+                    Events Submitted
+                {% endblocktrans %}
+            </div>
+        </div>
+        <div class="card" style="text-align: center; padding: 1.5rem;">
+            <div style="font-size: 2rem; font-weight: bold; color: #0066cc; margin-bottom: 0.5rem;">
+                {{ unique_participants }}
+            </div>
+            <div style="color: #666; margin-bottom: 0.5rem;">
+                {% trans "Unique Participants" %}
+            </div>
+            <div style="font-size: 0.9rem; color: #999;">
+                {{ total_participants }} {% trans "total participations" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Goal Metrics -->
+    {% if goal_metrics %}
+    <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+        <h2 style="margin-bottom: 1rem;">{% trans "Goal Progress" %}</h2>
+        {% for metric in goal_metrics %}
+        <div style="margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-weight: 500;">{{ metric.property.label }}</span>
+                <span style="font-weight: bold; color: {% if metric.status == 'success' %}#28a745{% elif metric.status == 'warning' %}#ffc107{% else %}#dc3545{% endif %};">
+                    {% if metric.goal_type == "percentage" %}
+                        {{ metric.current_value }}% / {{ metric.goal_value }}%
+                    {% elif metric.goal_type == "total" %}
+                        {{ metric.current_value }} / {{ metric.goal_value }}
+                    {% elif metric.goal_type == "average" %}
+                        {{ metric.current_value }} / {{ metric.goal_value }} {% trans "avg" %}
+                    {% endif %}
+                </span>
+            </div>
+            <div style="background: #e9ecef; border-radius: 4px; overflow: hidden; height: 8px;">
+                <div style="background: {% if metric.status == 'success' %}#28a745{% elif metric.status == 'warning' %}#ffc107{% else %}#dc3545{% endif %}; height: 100%; width: {% if metric.progress_percentage > 100 %}100{% else %}{{ metric.progress_percentage }}{% endif %}%;"></div>
+            </div>
+            {% if metric.total_responses %}
+            <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">
+                {{ metric.total_responses }} {% trans "events tracked" %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Division Breakdown -->
+    {% if division_breakdown %}
+    <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+        <h2 style="margin-bottom: 1rem;">{% trans "By" %} {{ program.breakdown_by_division_type|title }}</h2>
+        <p style="color: #666; margin-bottom: 1.5rem;">
+            {% trans "Statistics broken down by geographic division" %}
+        </p>
+
+        {% for item in division_breakdown %}
+        <details style="margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 4px; padding: 1rem;">
+            <summary style="cursor: pointer; font-weight: 500; font-size: 1.1rem;">
+                {{ item.division.name }}
+                <span style="color: #666; font-weight: normal; font-size: 0.9rem;">
+                    ({{ item.unique_targets_reached }}/{{ item.total_eligible_targets }} {% trans "targets" %} - {{ item.target_reach_percentage }}%)
+                </span>
+            </summary>
+
+            <div style="margin-top: 1.5rem;">
+                <!-- Division Progress Stats -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #0066cc;">
+                            {{ item.unique_targets_reached }} / {{ item.total_eligible_targets }}
+                        </div>
+                        <div style="color: #666; font-size: 0.85rem;">{% trans "Targets Reached" %}</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #0066cc;">
+                            {{ item.total_events }}
+                        </div>
+                        <div style="color: #666; font-size: 0.85rem;">{% trans "Events" %}</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #0066cc;">
+                            {{ item.unique_participants }}
+                        </div>
+                        <div style="color: #666; font-size: 0.85rem;">{% trans "Participants" %}</div>
+                    </div>
+                </div>
+
+                <!-- Division Goal Metrics -->
+                {% if item.goal_metrics %}
+                <div style="margin-top: 1rem;">
+                    <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">{% trans "Goal Progress" %}</h3>
+                    {% for metric in item.goal_metrics %}
+                    <div style="margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.9rem;">
+                            <span>{{ metric.property.label }}</span>
+                            <span style="font-weight: bold; color: {% if metric.status == 'success' %}#28a745{% elif metric.status == 'warning' %}#ffc107{% else %}#dc3545{% endif %};">
+                                {% if metric.goal_type == "percentage" %}
+                                    {{ metric.current_value }}% / {{ metric.goal_value }}%
+                                {% elif metric.goal_type == "total" %}
+                                    {{ metric.current_value }} / {{ metric.goal_value }}
+                                {% elif metric.goal_type == "average" %}
+                                    {{ metric.current_value }} / {{ metric.goal_value }} {% trans "avg" %}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div style="background: #e9ecef; border-radius: 4px; overflow: hidden; height: 6px;">
+                            <div style="background: {% if metric.status == 'success' %}#28a745{% elif metric.status == 'warning' %}#ffc107{% else %}#dc3545{% endif %}; height: 100%; width: {% if metric.progress_percentage > 100 %}100{% else %}{{ metric.progress_percentage }}{% endif %}%;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Recent Events -->
+    {% if recent_events %}
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">{% trans "Recent Events" %}</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid #ddd;">
+                    <th style="padding: 0.75rem; text-align: left;">{% trans "Date" %}</th>
+                    <th style="padding: 0.75rem; text-align: left;">{% trans "Location" %}</th>
+                    <th style="padding: 0.75rem; text-align: left;">{% trans "Participants" %}</th>
+                    <th style="padding: 0.75rem; text-align: left;">{% trans "Submitted By" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in recent_events %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 0.75rem;">{{ event.date }}</td>
+                    <td style="padding: 0.75rem;">{{ event.location }}</td>
+                    <td style="padding: 0.75rem;">{{ event.participants.count }}</td>
+                    <td style="padding: 0.75rem;">{{ event.submitted_by.email }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if total_events > 5 %}
+        <div style="margin-top: 1rem; text-align: center;">
+            <a href="{% url 'program_event_list' program.slug %}">
+                {% trans "View all" %} {{ total_events }} {% trans "events" %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 3rem;">
+        <p style="font-size: 1.2rem; color: #666; margin-bottom: 1.5rem;">
+            {% trans "No events have been submitted yet." %}
+        </p>
+        <a href="{% url 'program_create_event' program.slug %}" class="btn btn-primary">
+            {% trans "Submit First Event" %}
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
