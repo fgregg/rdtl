@@ -81,6 +81,7 @@ filter_arg: QUOTED_STRING | NUMBER | IDENTIFIER
 // Template Blocks
 template_block: if_block
               | for_block
+              | with_block
 
 if_block: if_open element* elif_part* else_part? if_close
 
@@ -95,6 +96,12 @@ for_open: "{%" "for" loop_vars "in" expression "%}"
 loop_vars: IDENTIFIER ("," IDENTIFIER)*
 empty_part: "{%" "empty" "%}" element*
 for_close: "{%" "endfor" "%}"
+
+with_block: with_open element* with_close
+
+with_open: "{%" "with" with_assignment+ "%}"
+with_assignment: IDENTIFIER "=" expression_or_filtered
+with_close: "{%" "endwith" "%}"
 
 // Template Single Tags
 // Note: Custom blocks/tags require two-phase parsing (not expressible in pure CFG)

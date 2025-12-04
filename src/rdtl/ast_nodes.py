@@ -285,7 +285,9 @@ class BlockTag(ASTNode):
 class WithBlock(ASTNode):
     """With block: {% with var=value %}...{% endwith %}."""
 
-    assignments: list[tuple[str, "Expression | Literal"]] = field(default_factory=list)
+    assignments: list[tuple[str, "Expression | Literal | FilteredExpression"]] = field(
+        default_factory=list
+    )
     children: list[ASTNode] = field(default_factory=list)
 
     def __repr__(self) -> str:

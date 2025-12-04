@@ -259,13 +259,15 @@ class ExpressionParser:
 
         return ast_nodes.Filter(name=name, args=args)
 
-    def parse_filter_arg(self) -> str | int | float:
-        """Parse individual filter arguments (strings, numbers, or identifiers).
+    def parse_filter_arg(
+        self,
+    ) -> str | int | float | ast_nodes.Expression | ast_nodes.Literal:
+        """Parse individual filter arguments (strings, numbers, or expressions).
 
         Filter arguments can be:
         1. String literals: "value" or 'value'
         2. Numeric literals: 42 or 3.14
-        3. Identifiers: variable names for dynamic arguments
+        3. Variable expressions: variable names with optional dot lookups
 
         String Arguments:
             Quoted strings are used for literal values:
@@ -278,24 +280,20 @@ class ExpressionParser:
             |slice:1,5 - Integers 1 and 5
             |pluralize:2.5 - Float 2.5 (less common)
 
-        Identifier Arguments:
-            Identifiers reference variables for dynamic values:
+        Expression Arguments:
+            Expressions reference variables with optional attribute lookups:
             |default:fallback_var - Use value of fallback_var
             |join:separator - Use value of separator variable
+            |get_item:property.name - Use value of property.name
 
         Type Coercion:
             - Strings remain as strings
             - Numbers are parsed as int or float based on decimal point
-            - Identifiers are returned as strings (variable names)
-
-        Limitations:
-            - No expression evaluation in filter arguments
-            - No attribute lookups: |filter:obj.attr not supported
-            - Arguments are positional, order matters
+            - Expressions are returned as Expression AST nodes
 
         Returns:
-            String (for string literals or identifiers) or
-            int/float (for numeric literals).
+            String (for string literals), int/float (for numeric literals),
+            or Expression (for variable references with optional lookups).
 
         Raises:
             ParseError: If argument token is not STRING, NUMBER, or IDENTIFIER.
@@ -304,15 +302,17 @@ class ExpressionParser:
             "N/A" → "N/A" (string)
             10 → 10 (int)
             3.14 → 3.14 (float)
-            my_var → "my_var" (identifier string)
+            my_var → Expression(base='my_var', lookups=[])
+            obj.attr → Expression(base='obj', lookups=[Lookup('attribute', 'attr')])
         """
         if self.parser.match(TokenType.STRING):
             return self.parser.advance().value
         elif self.parser.match(TokenType.NUMBER):
             value = self.parser.advance().value
             return float(value) if "." in value else int(value)
-        elif self.parser.match(TokenType.IDENTIFIER):
-            return self.parser.advance().value
+        elif self.parser.is_identifier_like():
+            # Parse as a full expression to support dot lookups like property.name
+            return self.parse_expression()
         else:
             from rdtl.parser import ParseError  # noqa: PLC0415 (avoid circular import)
 

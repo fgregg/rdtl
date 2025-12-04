@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load static i18n program_tags %}
+
+{% block title %}{{ program.name }} - {% trans "Events" %} - {% trans "CFFWU Organizing" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1>{{ program.name }} - {% trans "Events" %}</h1>
+        <a href="{% url 'program_create_event' program.slug %}" class="btn btn-primary">{% trans "Add Event" %}</a>
+    </div>
+
+    {% if program.description %}
+    <div class="intro" style="margin-bottom: 2rem;">
+        {{ program.description }}
+    </div>
+    {% endif %}
+
+    <!-- Filter Form -->
+    <div class="card" style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa;">
+        <h2 style="margin-bottom: 1rem; font-size: 1.1rem;">{% trans "Filter Events" %}</h2>
+        <form method="get" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: end;">
+            <div>
+                <label for="date_from" style="display: block; margin-bottom: 0.25rem; font-weight: 500; font-size: 0.9rem;">
+                    {% trans "Date From" %}
+                </label>
+                <input type="date" id="date_from" name="date_from" value="{{ filter_date_from }}"
+                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+                <label for="date_to" style="display: block; margin-bottom: 0.25rem; font-weight: 500; font-size: 0.9rem;">
+                    {% trans "Date To" %}
+                </label>
+                <input type="date" id="date_to" name="date_to" value="{{ filter_date_to }}"
+                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            {% if available_divisions %}
+            <div>
+                <label for="division" style="display: block; margin-bottom: 0.25rem; font-weight: 500; font-size: 0.9rem;">
+                    {{ program.breakdown_by_division_type|title }}
+                </label>
+                <select id="division" name="division"
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">{% trans "All" %}</option>
+                    {% for division in available_divisions %}
+                    <option value="{{ division.id }}" {% if filter_division == division.id|stringformat:"s" %}selected{% endif %}>
+                        {{ division.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div>
+                <label for="submitted_by" style="display: block; margin-bottom: 0.25rem; font-weight: 500; font-size: 0.9rem;">
+                    {% trans "Submitted By" %}
+                </label>
+                <select id="submitted_by" name="submitted_by"
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">{% trans "All" %}</option>
+                    {% for user in available_users %}
+                    <option value="{{ user.id }}" {% if filter_submitted_by == user.id|stringformat:"s" %}selected{% endif %}>
+                        {{ user.email }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                    {% trans "Apply Filters" %}
+                </button>
+                <a href="{% url 'program_event_list' program.slug %}" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">
+                    {% trans "Clear" %}
+                </a>
+            </div>
+        </form>
+        {% if filter_count > 0 %}
+        <div style="margin-top: 1rem; padding: 0.75rem; background: #e7f3ff; border-radius: 4px; color: #004085;">
+            {% blocktrans count counter=filter_count %}
+                {{ counter }} filter active
+            {% plural %}
+                {{ counter }} filters active
+            {% endblocktrans %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if events %}
+        <div class="card">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <th style="padding: 0.75rem; text-align: left;">{% trans "Date" %}</th>
+                        <th style="padding: 0.75rem; text-align: left;">{% trans "Location" %}</th>
+                        <th style="padding: 0.75rem; text-align: left;">{% trans "Participants" %}</th>
+                        {% for property in properties %}
+                        <th style="padding: 0.75rem; text-align: left;">{{ property.label }}</th>
+                        {% endfor %}
+                        <th style="padding: 0.75rem; text-align: left;">{% trans "Submitted By" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.75rem;">{{ event.date }}</td>
+                        <td style="padding: 0.75rem;">{{ event.location }}</td>
+                        <td style="padding: 0.75rem;">
+                            {{ event.participants.count }}
+                            {% if event.participants.count > 0 %}
+                                <details style="display: inline;">
+                                    <summary style="cursor: pointer; color: #0066cc;">{% trans "view" %}</summary>
+                                    <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                                        {% for participation in event.participants.all %}
+                                        <li>{{ participation.person }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </details>
+                            {% endif %}
+                        </td>
+                        {% for property in properties %}
+                        <td style="padding: 0.75rem;">
+                            {% with value=event.program_data|get_item:property.name %}
+                                {% if value %}{{ value }}{% else %}-{% endif %}
+                            {% endwith %}
+                        </td>
+                        {% endfor %}
+                        <td style="padding: 0.75rem;">{{ event.submitted_by.email }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 1rem; color: #666;">
+            {% blocktrans count counter=events.count %}
+                {{ counter }} event
+            {% plural %}
+                {{ counter }} events
+            {% endblocktrans %}
+        </div>
+    {% else %}
+        <div class="card" style="text-align: center; padding: 3rem;">
+            <p style="font-size: 1.2rem; color: #666; margin-bottom: 1.5rem;">
+                {% if filter_count > 0 %}
+                    {% trans "No events match the selected filters." %}
+                {% else %}
+                    {% trans "No events have been submitted yet." %}
+                {% endif %}
+            </p>
+            {% if filter_count > 0 %}
+                <a href="{% url 'program_event_list' program.slug %}" class="btn btn-secondary">
+                    {% trans "Clear Filters" %}
+                </a>
+            {% else %}
+                <a href="{% url 'program_create_event' program.slug %}" class="btn btn-primary">
+                    {% trans "Submit First Event" %}
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -345,7 +345,9 @@ class Parser:
         """
         return self.expression_parser.parse_filter()
 
-    def parse_filter_arg(self) -> str | int | float:
+    def parse_filter_arg(
+        self,
+    ) -> str | int | float | ast_nodes.Expression | ast_nodes.Literal:
         """Parse individual filter arguments.
 
         Delegates to ExpressionParser for implementation.
@@ -822,7 +824,7 @@ class Parser:
         while not self.match(TokenType.TEMPLATE_TAG_END):
             var_name = self.expect(TokenType.IDENTIFIER).value
             self.expect(TokenType.EQUALS)
-            var_value = self.parse_expression()
+            var_value = self.parse_expression_with_filters()
 
             assignments.append((var_name, var_value))
 

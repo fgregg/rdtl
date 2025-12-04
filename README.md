@@ -43,6 +43,7 @@ RDTL now supports **all Django 5.2 built-in template tags and filters** that can
 - Control flow: `{% if %}`, `{% for %}` (with tuple unpacking), `{% ifchanged %}`
 - Output control: `{% filter %}`, `{% spaceless %}`, `{% autoescape %}`
 - Content: `{% block %}`, `{% verbatim %}`, `{% comment %}`
+- Variable scoping: `{% with %}` (with filters in assignments)
 - Custom blocks: Any `{% customtag %}...{% endcustomtag %}` pair
 
 **Supported Django Single Tags:**
@@ -70,13 +71,12 @@ RDTL now supports **all Django 5.2 built-in template tags and filters** that can
 - Allows custom filters when validation is disabled
 
 **Unsupported Django Tags (cannot be expressed in CFG):**
-- `{% with %}` - Creates context-dependent variable scoping
 - `{% widthratio %}` - Complex expression evaluation
 - Template inheritance (`{% extends %}` with block overriding) - Requires multi-file context
 - `{% csrf_token %}` - Runtime security token generation
 - `{% now %}` - Runtime timestamp generation
 
-These tags require runtime evaluation, multi-file context, or context-sensitive scoping that cannot be determined during parsing. RDTL focuses on tags that can be validated and formatted at parse time.
+These tags require runtime evaluation or multi-file context that cannot be determined during parsing. RDTL focuses on tags that can be validated and formatted at parse time.
 
 ### 6. Allowed Constructs
 
@@ -100,6 +100,13 @@ These tags require runtime evaluation, multi-file context, or context-sensitive 
 {% cache 500 sidebar %}
   <div class="sidebar">...</div>
 {% endcache %}
+```
+
+**Valid (with block for variable caching):**
+```html
+{% with total=items|length price=product.price|floatformat:2 %}
+  <p>{{ total }} items at ${{ price }}</p>
+{% endwith %}
 ```
 
 **Valid (Dynamic attribute names):**

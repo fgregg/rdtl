@@ -476,3 +476,102 @@ def test_is_not_operator():
     assert isinstance(if_block, ast_nodes.IfBlock)
     assert isinstance(if_block.if_condition, ast_nodes.Comparison)
     assert if_block.if_condition.operator == "is not"
+
+
+def test_with_block_with_filter():
+    """Test with block with filter in assignment."""
+    template = """
+    {% with value=data|get_item:key %}
+        {{ value }}
+    {% endwith %}
+    """
+    ast = parse(template)
+
+    with_block = None
+    for child in ast.children:
+        if isinstance(child, ast_nodes.WithBlock):
+            with_block = child
+            break
+
+    assert with_block is not None
+    assert len(with_block.assignments) == 1
+    assert with_block.assignments[0][0] == "value"
+
+    # The value should be a FilteredExpression
+    expr = with_block.assignments[0][1]
+    assert isinstance(expr, ast_nodes.FilteredExpression)
+    assert expr.expression.base == "data"
+    assert len(expr.filters) == 1
+    assert expr.filters[0].name == "get_item"
+
+
+def test_with_block_with_filter_and_dot_arg():
+    """Test with block with filter that has a dot-notation argument."""
+    template = """
+    {% with value=event.program_data|get_item:property.name %}
+        {{ value }}
+    {% endwith %}
+    """
+    ast = parse(template)
+
+    with_block = None
+    for child in ast.children:
+        if isinstance(child, ast_nodes.WithBlock):
+            with_block = child
+            break
+
+    assert with_block is not None
+    assert len(with_block.assignments) == 1
+    assert with_block.assignments[0][0] == "value"
+
+    # The value should be a FilteredExpression
+    expr = with_block.assignments[0][1]
+    assert isinstance(expr, ast_nodes.FilteredExpression)
+    assert expr.expression.base == "event"
+    assert len(expr.expression.lookups) == 1
+    assert expr.expression.lookups[0].value == "program_data"
+
+    # Check the filter
+    assert len(expr.filters) == 1
+    assert expr.filters[0].name == "get_item"
+
+    # Check the filter argument is an Expression with dot lookup
+    assert len(expr.filters[0].args) == 1
+    filter_arg = expr.filters[0].args[0]
+    assert isinstance(filter_arg, ast_nodes.Expression)
+    assert filter_arg.base == "property"
+    assert len(filter_arg.lookups) == 1
+    assert filter_arg.lookups[0].value == "name"
+
+
+def test_with_block_multiple_assignments_with_filters():
+    """Test with block with multiple assignments including filters."""
+    template = """
+    {% with total=items|length upper_name=user.name|upper %}
+        {{ total }} {{ upper_name }}
+    {% endwith %}
+    """
+    ast = parse(template)
+
+    with_block = None
+    for child in ast.children:
+        if isinstance(child, ast_nodes.WithBlock):
+            with_block = child
+            break
+
+    assert with_block is not None
+    assert len(with_block.assignments) == 2
+
+    # First assignment: total=items|length
+    assert with_block.assignments[0][0] == "total"
+    expr1 = with_block.assignments[0][1]
+    assert isinstance(expr1, ast_nodes.FilteredExpression)
+    assert expr1.expression.base == "items"
+    assert expr1.filters[0].name == "length"
+
+    # Second assignment: upper_name=user.name|upper
+    assert with_block.assignments[1][0] == "upper_name"
+    expr2 = with_block.assignments[1][1]
+    assert isinstance(expr2, ast_nodes.FilteredExpression)
+    assert expr2.expression.base == "user"
+    assert expr2.filters[0].name == "upper"
