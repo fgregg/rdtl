@@ -223,6 +223,14 @@ class I18nLinter:
         if re.match(ui_symbols_pattern, text):
             return
 
+        # Skip HTML entities for arrows and quotes (commonly used as UI symbols)
+        # &laquo; &raquo; &lsaquo; &rsaquo; &larr; &rarr; etc.
+        if re.match(
+            r"^(&(laquo|raquo|lsaquo|rsaquo|larr|rarr|uarr|darr|nbsp|middot|bull|hellip);?\s*)+$",
+            text,
+        ):
+            return
+
         # Skip if it's purely numeric (with common numeric punctuation)
         if re.match(r"^[\d\.\,\s\%\$\€\£\¥\/\-\+]+$", text):
             return
