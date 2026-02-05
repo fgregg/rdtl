@@ -339,13 +339,13 @@ class RDTLValidator:
                 i += 2
                 continue
 
-            # Check for HTML tag opening
+            # Check for HTML tag opening (skip inside template tags where < is a comparison operator)
             if char == "<" and i + 1 < len(masked):
-                # Make sure it's not followed by template syntax
                 if masked[i + 1] not in "{":
-                    stack.append(("<", i, "html"))
+                    if not stack or stack[-1][2] != "tag":
+                        stack.append(("<", i, "html"))
 
-            # Check for HTML tag closing
+            # Check for HTML tag closing (skip inside template tags where > is a comparison operator)
             elif char == ">" and stack and stack[-1][2] == "html":
                 stack.pop()
 

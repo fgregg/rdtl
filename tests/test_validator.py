@@ -381,3 +381,10 @@ def test_invalid_interleaved_file():
     is_valid, errors = validate_template(template)
     assert not is_valid, "invalid_interleaved.html should be invalid"
     assert len(errors) > 0
+
+
+def test_valid_comparison_operators_in_template_tag():
+    """Test that < and > comparison operators in template tags are not treated as HTML."""
+    template = "{% if num > 3 and num < 10 %}{{ num }}{% endif %}"
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Template should be valid. Errors: {errors}"

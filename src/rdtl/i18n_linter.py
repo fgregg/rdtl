@@ -223,10 +223,21 @@ class I18nLinter:
         if re.match(ui_symbols_pattern, text):
             return
 
-        # Skip HTML entities for arrows and quotes (commonly used as UI symbols)
-        # &laquo; &raquo; &lsaquo; &rsaquo; &larr; &rarr; etc.
+        # Skip HTML entities commonly used as UI symbols (not translatable text)
         if re.match(
-            r"^(&(laquo|raquo|lsaquo|rsaquo|larr|rarr|uarr|darr|nbsp|middot|bull|hellip);?\s*)+$",
+            r"^(&("
+            r"laquo|raquo|lsaquo|rsaquo|lsquo|rsquo|ldquo|rdquo"  # quotes
+            r"|larr|rarr|uarr|darr|harr"  # arrows
+            r"|lArr|rArr|uArr|dArr|hArr"  # double arrows
+            r"|ndash|mdash|middot|bull|hellip"  # punctuation
+            r"|times|divide|plusmn|minus"  # math
+            r"|deg|sect|para|dagger|Dagger"  # symbols
+            r"|check|cross"  # marks
+            r"|spades|clubs|hearts|diams"  # card suits
+            r"|copy|reg|trade"  # legal
+            r"|cent|pound|yen|euro"  # currency
+            r"|nbsp"  # spacing
+            r");?\s*)+$",
             text,
         ):
             return
