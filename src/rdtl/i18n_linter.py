@@ -6,6 +6,7 @@ Checks that all user-visible text is wrapped in translation tags ({% trans %} or
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from rdtl import ast_nodes
@@ -209,74 +210,15 @@ class I18nLinter:
         if not text:
             return
 
-        # Skip if it's just whitespace, punctuation, or UI symbols
-        # Includes: basic punctuation, arrows, bullets, math symbols, checkmarks, etc.
-        # Also includes / (slash) commonly used as separator like "5 / 10"
-        # and % (percent) which appears in numeric displays
-        ui_symbols_pattern = (
-            r"^[\s\-\—\–\.\,\:\;\!\?\(\)\[\]\{\}\*\/"
-            r"\←\→\↑\↓\«\»\‹\›\⇐\⇒\⟵\⟶"
-            r"\×\✓\✗\✔\✘\•\·\◦\▪\▸\⋯\…\▲\▼\△\▽"
-            r"\+\−\÷\±\%"
-            r"]*$"
-        )
-        if re.match(ui_symbols_pattern, text):
+        # Skip HTML entities and numeric character references — these encode
+        # symbols/icons, not translatable text
+        if re.match(r"^(&([a-zA-Z]+|#(x[0-9a-fA-F]+|[0-9]+));?\s*)+$", text):
             return
 
-        # Skip HTML entities commonly used as UI symbols (not translatable text)
-        if re.match(
-            r"^(&("
-            r"laquo|raquo|lsaquo|rsaquo|lsquo|rsquo|ldquo|rdquo"  # quotes
-            r"|larr|rarr|uarr|darr|harr"  # arrows
-            r"|lArr|rArr|uArr|dArr|hArr"  # double arrows
-            r"|ndash|mdash|middot|bull|hellip"  # punctuation
-            r"|times|divide|plusmn|minus"  # math
-            r"|deg|sect|para|dagger|Dagger"  # symbols
-            r"|check|cross"  # marks
-            r"|spades|clubs|hearts|diams"  # card suits
-            r"|copy|reg|trade"  # legal
-            r"|cent|pound|yen|euro"  # currency
-            r"|nbsp"  # spacing
-            r");?\s*)+$",
-            text,
-        ):
-            return
-
-        # Skip numeric character references (&#NNNN; or &#xHHHH;) — these are
-        # almost always symbols/icons, not translatable text
-        if re.match(r"^(&#(x[0-9a-fA-F]+|[0-9]+);?\s*)+$", text):
-            return
-
-        # Skip if it's purely numeric (with common numeric punctuation)
-        if re.match(r"^[\d\.\,\s\%\$\€\£\¥\/\-\+]+$", text):
-            return
-
-        # Skip if it's only emoji (universal symbols that don't need translation)
-        # Emoji ranges: https://unicode.org/emoji/charts/full-emoji-list.html
-        # Main emoji blocks in Unicode:
-        # - Emoticons: 1F600-1F64F
-        # - Misc Symbols and Pictographs: 1F300-1F5FF
-        # - Transport and Map: 1F680-1F6FF
-        # - Supplemental Symbols: 1F900-1F9FF
-        # - Symbols and Pictographs Extended-A: 1FA70-1FAFF
-        # - Dingbats: 2700-27BF (includes ✏️)
-        # - Misc Symbols: 2600-26FF
-        # - Variation Selectors: FE00-FE0F (emoji presentation)
-        # - Regional indicators, keycaps, etc.
-        emoji_pattern = (
-            r"^[\s"
-            r"\U0001F300-\U0001F9FF"  # Main emoji blocks
-            r"\U00002600-\U000027BF"  # Misc symbols and dingbats
-            r"\U0001F000-\U0001F02F"  # Mahjong, domino tiles
-            r"\U0001FA70-\U0001FAFF"  # Extended pictographs
-            r"\U0001F100-\U0001F1FF"  # Enclosed characters
-            r"\U00002300-\U000023FF"  # Misc technical
-            r"\U00002B50-\U00002BFF"  # Misc symbols
-            r"\U0001F200-\U0001F251"  # Enclosed ideographic
-            r"\U0000FE00-\U0000FE0F"  # Variation selectors
-            r"]+$"
-        )
-        if re.match(emoji_pattern, text):
+        # Skip text that contains no letters (Unicode category "L"). This
+        # covers punctuation, symbols, arrows, geometric shapes, emoji,
+        # numbers, currency signs, etc. without enumerating them.
+        if not any(unicodedata.category(ch).startswith("L") for ch in text):
             return
 
         # This is likely user-visible text that should be translated
