@@ -1,0 +1,53 @@
+{% load i18n %}
+{% for prop in properties %}
+<div class="property-card" id="property-{{ prop.pk }}">
+    <div class="property-info">
+        <div class="property-label">
+            {{ prop.label }}
+            {% if prop.required %}<span class="required-badge">*</span>{% endif %}
+        </div>
+        <div class="property-meta">
+            <span class="type-badge">{{ prop.get_field_type_display }}</span>
+            <code>{{ prop.name }}</code>
+            {% if prop.help_text %} &middot; {{ prop.help_text }}{% endif %}
+        </div>
+    </div>
+    <div class="property-actions">
+        <form method="post"
+              hx-post="{% url 'programbuilder:property_move' slug=program.slug pk=prop.pk %}"
+              hx-target="#properties-section"
+              hx-swap="innerHTML"
+              style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" {% if forloop.first %}disabled{% endif %} title="{% trans 'Move up' %}">&#9650;</button>
+        </form>
+        <form method="post"
+              hx-post="{% url 'programbuilder:property_move' slug=program.slug pk=prop.pk %}"
+              hx-target="#properties-section"
+              hx-swap="innerHTML"
+              style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" {% if forloop.last %}disabled{% endif %} title="{% trans 'Move down' %}">&#9660;</button>
+        </form>
+        <button hx-get="{% url 'programbuilder:property_edit' slug=program.slug pk=prop.pk %}"
+                hx-target="#properties-section"
+                hx-swap="innerHTML">{% trans "Edit" %}</button>
+        <button class="btn-danger"
+                hx-post="{% url 'programbuilder:property_delete' slug=program.slug pk=prop.pk %}"
+                hx-target="#properties-section"
+                hx-swap="innerHTML"
+                hx-confirm="{% trans 'Delete this property? This cannot be undone.' %}">{% trans "Delete" %}</button>
+    </div>
+</div>
+{% empty %}
+<p class="help-text">{% trans "No properties defined yet." %}</p>
+{% endfor %}
+
+<div style="margin-top: var(--space-xl);">
+    <button class="btn btn-secondary btn-sm"
+            hx-get="{% url 'programbuilder:property_add' slug=program.slug %}"
+            hx-target="#properties-section"
+            hx-swap="beforeend">{% trans "+ Add Property" %}</button>
+</div>

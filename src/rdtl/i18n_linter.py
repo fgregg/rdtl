@@ -216,7 +216,7 @@ class I18nLinter:
         ui_symbols_pattern = (
             r"^[\s\-\—\–\.\,\:\;\!\?\(\)\[\]\{\}\*\/"
             r"\←\→\↑\↓\«\»\‹\›\⇐\⇒\⟵\⟶"
-            r"\×\✓\✗\✔\✘\•\◦\▪\▸\⋯\…"
+            r"\×\✓\✗\✔\✘\•\◦\▪\▸\⋯\…\▲\▼\△\▽"
             r"\+\−\÷\±\%"
             r"]*$"
         )
@@ -240,6 +240,11 @@ class I18nLinter:
             r");?\s*)+$",
             text,
         ):
+            return
+
+        # Skip numeric character references (&#NNNN; or &#xHHHH;) — these are
+        # almost always symbols/icons, not translatable text
+        if re.match(r"^(&#(x[0-9a-fA-F]+|[0-9]+);?\s*)+$", text):
             return
 
         # Skip if it's purely numeric (with common numeric punctuation)

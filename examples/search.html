@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Complaint Search" %} - {% trans "CFFWU Organizing" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-actions">
+        <h1>{% trans "Complaint Search" %}</h1>
+        <a href="/" class="back-link">&larr; {% trans "Back to Home" %}</a>
+    </div>
+
+    {# Search bar - separate card #}
+    <form method="get" id="search-form">
+        {% for facet_key in selected_facets %}
+        <input type="hidden" name="selected_facets" value="{{ facet_key }}">
+        {% endfor %}
+
+        <div class="card">
+            <div style="display: flex; gap: 0.5rem;">
+                <div style="flex: 1;">{{ form.q }}</div>
+                <button type="submit" class="btn btn-primary btn-sm">{% trans "Search" %}</button>
+                {% if selected_facets or query %}
+                <a href="{% url 'complaint_search' %}" class="btn btn-secondary btn-sm">{% trans "Clear" %}</a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    {# Facets sidebar + Results #}
+    <div class="card" style="display: flex; gap: 1.5rem; align-items: flex-start;">
+        {# Sidebar: Facets #}
+        <div style="flex: 0 0 240px; min-width: 0; border-right: 1px solid var(--color-border, #ddd); padding-right: 1.5rem;">
+            {% for group in field_facets %}
+            <details style="margin-bottom: 0.75rem;">
+                <summary style="cursor: pointer; font-weight: bold; font-size: 0.85rem; padding: 0.25rem 0; user-select: none;">{{ group.label }}</summary>
+                <div style="margin-top: 0.25rem;">
+                    {% for item in group.items %}
+                    <a href="{{ item.url }}"
+                       style="display: block; padding: 0.15rem 0; text-decoration: none; font-size: 0.85rem; color: inherit;{% if item.active %} font-weight: bold;{% endif %}">
+                        {% if item.active %}&times; {% endif %}{{ item.display }}
+                        <span style="opacity: 0.5;">({{ item.count }})</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
+
+            {% if date_facets %}
+            <details style="margin-bottom: 0.75rem;">
+                <summary style="cursor: pointer; font-weight: bold; font-size: 0.85rem; padding: 0.25rem 0; user-select: none;">{% trans "Year" %}</summary>
+                <div style="margin-top: 0.25rem;">
+                    {% for item in date_facets %}
+                    <a href="{{ item.url }}"
+                       style="display: block; padding: 0.15rem 0; text-decoration: none; font-size: 0.85rem; color: inherit;{% if item.active %} font-weight: bold;{% endif %}">
+                        {% if item.active %}&times; {% endif %}{{ item.year }}
+                        <span style="opacity: 0.5;">({{ item.count }})</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+
+        {# Main: Results #}
+        <div style="flex: 1; min-width: 0;">
+            <p class="text-muted mb-2" style="margin-top: 0;">
+                {% blocktrans count counter=result_count %}
+                    {{ counter }} result
+                {% plural %}
+                    {{ counter }} results
+                {% endblocktrans %}
+                {% if query %} {% blocktrans with q=query %}for "{{ q }}"{% endblocktrans %}{% endif %}
+            </p>
+
+            {% for result in page.object_list %}
+                {% with complaint=result.object %}
+                <a href="{% url 'complaint_detail' complaint.pk %}" style="text-decoration: none; color: inherit;">
+                    <div class="card card-hover">
+                        <div class="flex justify-between align-center flex-wrap gap-1">
+                            <h3 class="m-0" style="border: none; padding: 0;">{{ complaint.get_type_display }}</h3>
+                            <span class="text-sm text-muted">
+                                {% if complaint.date_filed %}{{ complaint.date_filed }}{% else %}{% trans "No date" %}{% endif %}
+                            </span>
+                        </div>
+                        <div class="mt-1">
+                            <strong><a href="{% url 'location_detail' complaint.establishment.pk %}" style="color: inherit;">{{ complaint.establishment.full_name }}</a></strong>
+                        </div>
+                        <div class="text-sm text-muted mt-1">
+                            {{ complaint.establishment.city }}
+                            &middot; {{ complaint.get_status_display }}
+                        </div>
+                        {% if complaint.issues %}
+                        <div class="mt-1">
+                            {% for issue in complaint.issues %}
+                                <span class="badge badge-sm">{{ issue }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if complaint.complaint_summary %}
+                        <p class="text-sm mt-1 mb-1" style="color: var(--color-text-subtle);">
+                            {{ complaint.complaint_summary|truncatewords:30|striptags }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </a>
+                {% endwith %}
+            {% empty %}
+                <div class="empty-state">
+                    <h2>{% trans "No complaints found" %}</h2>
+                    <p>{% trans "Try adjusting your search or filters." %}</p>
+                </div>
+            {% endfor %}
+
+            {# Pagination #}
+            {% if page.has_other_pages %}
+            <div class="pagination">
+                {% if page.has_previous %}
+                    <a href="?{{ request.GET.urlencode }}&page={{ page.previous_page_number }}">&laquo; {% trans "Previous" %}</a>
+                {% endif %}
+
+                {% for num in paginator.page_range %}
+                    {% if page.number == num %}
+                        <span class="current">{{ num }}</span>
+                    {% elif num > page.number|add:"-3" and num < page.number|add:"3" %}
+                        <a href="?{{ request.GET.urlencode }}&page={{ num }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page.has_next %}
+                    <a href="?{{ request.GET.urlencode }}&page={{ page.next_page_number }}">{% trans "Next" %} &raquo;</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

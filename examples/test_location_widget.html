@@ -1,0 +1,39 @@
+{% load static htmx_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Location Widget Test Page</title>
+    <link rel="stylesheet" href="{% static 'organizing/main.css' %}">
+    {% htmx_script %}
+    <style>
+        body {
+            padding: 2rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-container {
+            background: #f5f5f5;
+            padding: 2rem;
+            border-radius: 8px;
+        }
+        h1 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Location Widget Test Page</h1>
+        <p>This is a minimal test page for testing the location autocomplete widget in isolation.</p>
+
+        <form id="test-form">
+            <div class="form-field">
+                <label for="id_location_display">Location</label>
+                {{ widget_html|safe }}
+            </div>
+        </form>
+    </div>
+</body>
+</html>

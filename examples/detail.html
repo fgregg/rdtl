@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ complaint.get_type_display }} - {% trans "Complaint" %} - {% trans "CFFWU Organizing" %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-actions">
+        <h1>{{ complaint.get_type_display }}</h1>
+        <a href="{% url 'complaint_search' %}" class="back-link">&larr; {% trans "Back to Search" %}</a>
+    </div>
+
+    <div class="card">
+        <h2>{% trans "Complaint Details" %}</h2>
+
+        <div class="detail-row">
+            <div class="detail-label">{% trans "Type" %}</div>
+            <div class="detail-value">{{ complaint.get_type_display }}</div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">{% trans "Status" %}</div>
+            <div class="detail-value">{{ complaint.get_status_display }}</div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">{% trans "Date Filed" %}</div>
+            <div class="detail-value">
+                {% if complaint.date_filed %}{{ complaint.date_filed }}{% else %}&mdash;{% endif %}
+            </div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">{% trans "Workers" %}</div>
+            <div class="detail-value">
+                {% if complaint.workers.all %}
+                    <ul style="margin: 0; padding-left: 1.25rem;">
+                    {% for worker in complaint.workers.all %}
+                        <li>{{ worker.first_name }} {{ worker.last_name }}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    &mdash;
+                {% endif %}
+            </div>
+        </div>
+        {% if complaint.issues %}
+        <div class="detail-row">
+            <div class="detail-label">{% trans "Issues" %}</div>
+            <div class="detail-value">
+                {% for issue in complaint.issues %}
+                    <span class="badge">{{ issue }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>{% trans "Location" %}</h2>
+
+        <div class="detail-row">
+            <div class="detail-label">{% trans "Brand" %}</div>
+            <div class="detail-value">
+                <a href="{% url 'location_detail' complaint.establishment.pk %}">{{ complaint.establishment.brand.name }}</a>
+            </div>
+        </div>
+
+        <div class="detail-row">
+            <div class="detail-label">{% trans "Address" %}</div>
+            <div class="detail-value">
+                <a href="{% url 'location_detail' complaint.establishment.pk %}">{{ complaint.establishment.address }}, {{ complaint.establishment.city }}, {{ complaint.establishment.state }} {{ complaint.establishment.zip_code }}</a>
+            </div>
+        </div>
+
+        {% if council_districts %}
+        <div class="detail-row">
+            <div class="detail-label">{% trans "City Council District" %}</div>
+            <div class="detail-value">
+                {% for district in council_districts %}
+                    {{ district.name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if complaint.complaint_summary %}
+    <div class="card">
+        <h2>{% trans "Summary" %}</h2>
+        <div>{{ complaint.complaint_summary|safe }}</div>
+    </div>
+    {% endif %}
+
+    {% if complaint.documents %}
+    <div class="card">
+        <h2>{% trans "Documents" %}</h2>
+        <div>{{ complaint.documents|safe }}</div>
+    </div>
+    {% endif %}
+
+    {% if other_complaints %}
+    <div class="card">
+        <h2>{% trans "Other Complaints at This Location" %}</h2>
+        {% for other in other_complaints %}
+        <a href="{% url 'complaint_detail' other.pk %}" style="text-decoration: none; color: inherit;">
+            <div class="card card-hover" style="margin-bottom: 0.5rem;">
+                <div class="flex justify-between align-center flex-wrap gap-1">
+                    <strong>{{ other.get_type_display }}</strong>
+                    <span class="text-sm text-muted">
+                        {% if other.date_filed %}{{ other.date_filed }}{% else %}{% trans "No date" %}{% endif %}
+                    </span>
+                </div>
+                <div class="text-sm text-muted">
+                    {{ other.get_status_display }}
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if salesforce_url %}
+    <div class="card" style="text-align: center; padding: 1.5rem;">
+        <a href="{{ salesforce_url }}" target="_blank" rel="noopener" class="btn btn-primary">{% trans "View in Salesforce" %}</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
