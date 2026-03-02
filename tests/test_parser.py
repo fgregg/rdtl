@@ -575,3 +575,18 @@ def test_with_block_multiple_assignments_with_filters():
     assert isinstance(expr2, ast_nodes.FilteredExpression)
     assert expr2.expression.base == "user"
     assert expr2.filters[0].name == "upper"
+
+
+def test_script_with_angle_brackets():
+    """Test that < and > inside script tags are parsed as text, not HTML."""
+    template = "<script>if (a < b && c > d) { x = 1; }</script>"
+    ast = parse(template)
+    assert len(ast.children) == 1
+    script = ast.children[0]
+    assert isinstance(script, ast_nodes.HTMLElement)
+    assert script.tag_name == "script"
+    # The JS content should be a single text node, not parsed as HTML
+    assert len(script.children) == 1
+    assert isinstance(script.children[0], ast_nodes.TextNode)
+    assert "<" in script.children[0].content
+    assert ">" in script.children[0].content

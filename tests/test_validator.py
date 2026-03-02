@@ -388,3 +388,17 @@ def test_valid_comparison_operators_in_template_tag():
     template = "{% if num > 3 and num < 10 %}{{ num }}{% endif %}"
     is_valid, errors = validate_template(template)
     assert is_valid, f"Template should be valid. Errors: {errors}"
+
+
+def test_valid_script_with_angle_brackets():
+    """Test that < and > inside script tags are not treated as HTML."""
+    template = "<script>if (checked.length < all.length) { x = 1; }</script>"
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Template should be valid. Errors: {errors}"
+
+
+def test_valid_script_with_template_syntax():
+    """Test that template syntax inside script tags still works."""
+    template = "<script>var id = '{{ obj.id }}';</script>"
+    is_valid, errors = validate_template(template)
+    assert is_valid, f"Template should be valid. Errors: {errors}"

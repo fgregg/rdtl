@@ -284,6 +284,8 @@ class RDTLValidator:
         """Check that all brackets are properly matched."""
         stack = []
         i = 0
+        in_raw_text_element = None  # tracks <script> or <style> content
+        entering_raw_text = None  # set when we see <script/<style, activated on ">"
 
         # Use masked content to avoid matching brackets inside attribute values
         masked = self._mask_attribute_values(self.content)
@@ -339,15 +341,45 @@ class RDTLValidator:
                 i += 2
                 continue
 
+            # Check for closing </script> or </style> tag to exit raw text mode
+            if in_raw_text_element and char == "<":
+                close_tag = f"</{in_raw_text_element}"
+                end = i + len(close_tag)
+                if masked[i:end].lower() == close_tag:
+                    in_raw_text_element = None
+                    # Fall through to normal HTML bracket matching for the closing tag
+                else:
+                    i += 1
+                    continue
+
+            # Inside <script> or <style>, skip HTML bracket matching
+            if in_raw_text_element:
+                i += 1
+                continue
+
             # Check for HTML tag opening (skip inside template tags where < is a comparison operator)
             if char == "<" and i + 1 < len(masked):
                 if masked[i + 1] not in "{":
                     if not stack or stack[-1][2] != "tag":
                         stack.append(("<", i, "html"))
+                        # Check if this opens a <script> or <style> tag
+                        for tag_name in ("script", "style"):
+                            end = i + 1 + len(tag_name)
+                            if (
+                                end <= len(masked)
+                                and masked[i + 1 : end].lower() == tag_name
+                                and (end == len(masked) or not masked[end].isalpha())
+                            ):
+                                entering_raw_text = tag_name
+                                break
 
             # Check for HTML tag closing (skip inside template tags where > is a comparison operator)
             elif char == ">" and stack and stack[-1][2] == "html":
                 stack.pop()
+                # Enter raw text mode after the opening tag closes
+                if entering_raw_text:
+                    in_raw_text_element = entering_raw_text
+                    entering_raw_text = None
 
             i += 1
 

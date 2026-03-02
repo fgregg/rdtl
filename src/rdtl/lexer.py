@@ -248,6 +248,7 @@ class Lexer:
         self.line = 1
         self.column = 1
         self.tokens: list[Token] = []
+        self._raw_text_tag: str | None = None  # set inside <script>/<style>
 
     def current_char(self) -> str | None:
         """Get current character without consuming it."""
@@ -546,6 +547,14 @@ class Lexer:
                     return
 
             self.tokenize_html_tag()
+            # After opening a <script> or <style> tag, switch to raw text mode
+            # where < and > are not treated as HTML syntax
+            if (
+                self.tokens
+                and self.tokens[-1].type == TokenType.HTML_OPEN_TAG
+                and self.tokens[-1].value.lower() in ("script", "style")
+            ):
+                self._raw_text_tag = self.tokens[-1].value.lower()
             return
 
         # Plain text
@@ -558,7 +567,16 @@ class Lexer:
             # Check for start of template or HTML syntax
             next_char = self.peek()
             if char == "<":
-                break
+                if self._raw_text_tag:
+                    # In raw text mode, only break on the closing tag
+                    close_tag = f"</{self._raw_text_tag}"
+                    ahead = self.content[self.pos : self.pos + len(close_tag)]
+                    if ahead.lower() == close_tag:
+                        self._raw_text_tag = None
+                        break
+                    # Otherwise treat < as plain text
+                else:
+                    break
             if char == "{" and next_char in ("{", "%", "#"):
                 break
 
