@@ -64,6 +64,56 @@ class Parser:
         "verbatim",
     }
 
+    # Reserved lexemes that get their own token type but are nonetheless legal
+    # Django names. The lexer emits a dedicated token (e.g. URL, STATIC, AS) for
+    # every occurrence of these words, including when they're used as a plain
+    # variable name, alias target, or attribute. Treating them as soft keywords
+    # — accepting them wherever the grammar expects an identifier — lets valid
+    # templates like ``{% with url='x' %}`` parse. See is_identifier_like() and
+    # expect_identifier().
+    KEYWORD_TOKEN_TYPES = frozenset(
+        {
+            TokenType.IF,
+            TokenType.ELIF,
+            TokenType.ELSE,
+            TokenType.ENDIF,
+            TokenType.FOR,
+            TokenType.IN,
+            TokenType.EMPTY,
+            TokenType.ENDFOR,
+            TokenType.BLOCK,
+            TokenType.ENDBLOCK,
+            TokenType.WITH,
+            TokenType.ENDWITH,
+            TokenType.INCLUDE,
+            TokenType.EXTENDS,
+            TokenType.LOAD,
+            TokenType.CSRF_TOKEN,
+            TokenType.AUTOESCAPE,
+            TokenType.ENDAUTOESCAPE,
+            TokenType.COMMENT,
+            TokenType.ENDCOMMENT,
+            TokenType.IFCHANGED,
+            TokenType.ENDIFCHANGED,
+            TokenType.FILTER,
+            TokenType.ENDFILTER,
+            TokenType.SPACELESS,
+            TokenType.ENDSPACELESS,
+            TokenType.VERBATIM,
+            TokenType.ENDVERBATIM,
+            TokenType.CYCLE,
+            TokenType.RESETCYCLE,
+            TokenType.DEBUG,
+            TokenType.LOREM,
+            TokenType.REGROUP,
+            TokenType.QUERYSTRING,
+            TokenType.URL,
+            TokenType.STATIC,
+            TokenType.AS,
+            TokenType.BY,
+        }
+    )
+
     def __init__(self, tokens: list[Token], discovered_blocks: set | None = None):
         self.tokens = tokens
         self.pos = 0
@@ -125,48 +175,28 @@ class Parser:
         # NUMBER is allowed for numeric indices
         if token_type == TokenType.NUMBER:
             return True
-        # Keywords can be used as attribute names
-        keyword_types = {
-            TokenType.IF,
-            TokenType.ELIF,
-            TokenType.ELSE,
-            TokenType.ENDIF,
-            TokenType.FOR,
-            TokenType.IN,
-            TokenType.EMPTY,
-            TokenType.ENDFOR,
-            TokenType.BLOCK,
-            TokenType.ENDBLOCK,
-            TokenType.WITH,
-            TokenType.ENDWITH,
-            TokenType.INCLUDE,
-            TokenType.EXTENDS,
-            TokenType.LOAD,
-            TokenType.CSRF_TOKEN,
-            TokenType.AUTOESCAPE,
-            TokenType.ENDAUTOESCAPE,
-            TokenType.COMMENT,
-            TokenType.ENDCOMMENT,
-            TokenType.IFCHANGED,
-            TokenType.ENDIFCHANGED,
-            TokenType.FILTER,
-            TokenType.ENDFILTER,
-            TokenType.SPACELESS,
-            TokenType.ENDSPACELESS,
-            TokenType.VERBATIM,
-            TokenType.ENDVERBATIM,
-            TokenType.CYCLE,
-            TokenType.RESETCYCLE,
-            TokenType.DEBUG,
-            TokenType.LOREM,
-            TokenType.REGROUP,
-            TokenType.QUERYSTRING,
-            TokenType.URL,
-            TokenType.STATIC,
-            TokenType.AS,
-            TokenType.BY,
-        }
-        return token_type in keyword_types
+        # Reserved keyword lexemes can be used as attribute names
+        return token_type in self.KEYWORD_TOKEN_TYPES
+
+    def expect_identifier(self) -> Token:
+        """Consume a token in a name position, treating reserved words as soft keywords.
+
+        Django allows any of RDTL's reserved lexemes (``url``, ``static``, ``as``,
+        ``for``, ...) to be used as a plain name — a ``{% with %}`` target, a
+        ``{% for %}`` loop variable, an ``as`` alias, a block name, and so on.
+        The lexer always emits a dedicated keyword token for these words, so the
+        usual ``expect(TokenType.IDENTIFIER)`` would reject them. This accepts a
+        real IDENTIFIER or any reserved keyword token and returns it; the token's
+        ``value`` still carries the original lexeme. Numbers are not accepted,
+        since they are not valid names.
+        """
+        token = self.current()
+        if token.type == TokenType.IDENTIFIER or token.type in self.KEYWORD_TOKEN_TYPES:
+            return self.advance()
+        raise ParseError(
+            f"Expected identifier but got {token.type.name} "
+            f"at line {token.line}, column {token.column}"
+        )
 
     # ========================================================================
     # Main parsing methods
@@ -637,12 +667,12 @@ class Parser:
 
         # Parse loop variables (can be tuple unpacking)
         loop_vars = []
-        loop_vars.append(self.expect(TokenType.IDENTIFIER).value)
+        loop_vars.append(self.expect_identifier().value)
 
         # Check for comma-separated variables (tuple unpacking)
         while self.match(TokenType.COMMA):
             self.advance()  # ,
-            loop_vars.append(self.expect(TokenType.IDENTIFIER).value)
+            loop_vars.append(self.expect_identifier().value)
 
         # Expect 'in'
         self.expect(TokenType.IN)
@@ -742,7 +772,7 @@ class Parser:
         self.expect(TokenType.BLOCK)
 
         # Parse block name
-        name_token = self.expect(TokenType.IDENTIFIER)
+        name_token = self.expect_identifier()
         name = name_token.value
 
         self.expect(TokenType.TEMPLATE_TAG_END)
@@ -755,8 +785,8 @@ class Parser:
         self.expect(TokenType.ENDBLOCK)
 
         # Optional: block name can appear after endblock
-        if self.match(TokenType.IDENTIFIER):
-            end_name = self.advance().value
+        if not self.match(TokenType.TEMPLATE_TAG_END):
+            end_name = self.expect_identifier().value
             if end_name != name:
                 raise ParseError(
                     f"Block name mismatch: {name} vs {end_name} at line {self.current().line}"
@@ -822,7 +852,7 @@ class Parser:
         assignments = []
 
         while not self.match(TokenType.TEMPLATE_TAG_END):
-            var_name = self.expect(TokenType.IDENTIFIER).value
+            var_name = self.expect_identifier().value
             self.expect(TokenType.EQUALS)
             var_value = self.parse_expression_with_filters()
 
@@ -918,7 +948,7 @@ class Parser:
             # Parse key=value pairs
             while not self.match(TokenType.TEMPLATE_TAG_END):
                 # Parse key (identifier)
-                key_token = self.expect(TokenType.IDENTIFIER)
+                key_token = self.expect_identifier()
                 key = key_token.value
 
                 # Expect =
@@ -1060,7 +1090,7 @@ class Parser:
             # Check for 'as' keyword
             if self.match(TokenType.AS):
                 self.advance()
-                as_var = self.expect(TokenType.IDENTIFIER).value
+                as_var = self.expect_identifier().value
                 break
 
             # Check for keyword argument (key=value)
@@ -1108,7 +1138,7 @@ class Parser:
         as_var = None
         if self.match(TokenType.AS):
             self.advance()
-            as_var = self.expect(TokenType.IDENTIFIER).value
+            as_var = self.expect_identifier().value
 
         self.expect(TokenType.TEMPLATE_TAG_END)
         return ast_nodes.StaticTag(path=path, as_var=as_var)
@@ -1132,7 +1162,7 @@ class Parser:
             if self.match(TokenType.AS):
                 # 'as' keyword for naming the cycle
                 self.advance()  # AS
-                cycle_name = self.expect(TokenType.IDENTIFIER).value
+                cycle_name = self.expect_identifier().value
                 break
             elif self.match(TokenType.IDENTIFIER):
                 # Variable reference in silent mode
@@ -1219,7 +1249,7 @@ class Parser:
         self.advance()  # AS
 
         # Parse variable name
-        var_name = self.expect(TokenType.IDENTIFIER).value
+        var_name = self.expect_identifier().value
 
         self.expect(TokenType.TEMPLATE_TAG_END)
         return ast_nodes.RegroupTag(

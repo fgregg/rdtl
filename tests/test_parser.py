@@ -590,3 +590,73 @@ def test_script_with_angle_brackets():
     assert isinstance(script.children[0], ast_nodes.TextNode)
     assert "<" in script.children[0].content
     assert ">" in script.children[0].content
+
+
+# Regression tests for issue #1: reserved lexemes (e.g. `url`) used as plain
+# names. The lexer emits a dedicated token (URL, STATIC, AS, ...) for these
+# words, so the parser must treat them as soft keywords wherever Django allows
+# an arbitrary identifier (with target, for loop var, `as` alias, block name).
+# https://github.com/fgregg/rdtl/issues/1
+
+
+def test_with_target_named_url():
+    """`url` is a legal variable name as a {% with %} assignment target."""
+    template = "{% with url='x' %}{{ url }}{% endwith %}"
+    ast = parse(template)
+
+    with_block = next(c for c in ast.children if isinstance(c, ast_nodes.WithBlock))
+    assert with_block.assignments[0][0] == "url"
+
+
+def test_with_multiple_targets_reserved_names():
+    """Several reserved lexemes as with targets in one tag."""
+    template = "{% with url='a' static='b' %}{{ url }}{{ static }}{% endwith %}"
+    ast = parse(template)
+
+    with_block = next(c for c in ast.children if isinstance(c, ast_nodes.WithBlock))
+    assert [name for name, _ in with_block.assignments] == ["url", "static"]
+
+
+def test_for_loop_var_named_url():
+    """`url` is a legal loop variable name."""
+    template = "{% for url in items %}{{ url }}{% endfor %}"
+    ast = parse(template)
+
+    for_block = next(c for c in ast.children if isinstance(c, ast_nodes.ForBlock))
+    assert for_block.loop_vars == ["url"]
+
+
+def test_for_loop_tuple_unpack_reserved_names():
+    """Reserved lexemes work in tuple unpacking targets."""
+    template = "{% for url, static in items %}{{ url }}{% endfor %}"
+    ast = parse(template)
+
+    for_block = next(c for c in ast.children if isinstance(c, ast_nodes.ForBlock))
+    assert for_block.loop_vars == ["url", "static"]
+
+
+def test_url_tag_as_alias_named_url():
+    """`as url` alias target accepts a reserved lexeme."""
+    template = "{% url 'search' as url %}{{ url }}"
+    ast = parse(template)
+
+    url_tag = next(c for c in ast.children if isinstance(c, ast_nodes.UrlTag))
+    assert url_tag.as_var == "url"
+
+
+def test_block_name_reserved_lexeme():
+    """A {% block %} may be named with a reserved lexeme, including the close tag."""
+    template = "{% block url %}hi{% endblock url %}"
+    ast = parse(template)
+
+    block = next(c for c in ast.children if isinstance(c, ast_nodes.BlockTag))
+    assert block.name == "url"
+
+
+def test_include_with_context_var_named_url():
+    """`{% include ... with url=... %}` context-var name accepts a reserved lexeme."""
+    template = "{% include 'p.html' with url=foo %}"
+    ast = parse(template)
+
+    include = next(c for c in ast.children if isinstance(c, ast_nodes.IncludeTag))
+    assert "url" in include.context_vars
