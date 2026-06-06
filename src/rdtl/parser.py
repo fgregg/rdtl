@@ -269,9 +269,16 @@ class Parser:
                 )
             return None
 
-        # Ignore closing tags here - they're handled by parse_html_element
+        # A closing tag reaching this point is unmatched: a matching open tag
+        # consumes its own closing tag in parse_html_element, so this is a stray
+        # </tag> with no opener. Raise rather than returning None — returning
+        # None without consuming the token would spin the caller's parse loop
+        # forever (it only advances when a token is consumed).
         if token.type == TokenType.HTML_CLOSE_TAG:
-            return None
+            raise ParseError(
+                f"Unexpected closing tag </{token.value}> at line {token.line}, "
+                f"column {token.column}"
+            )
 
         raise ParseError(
             f"Unexpected token {token.type.name} at line {token.line}, column {token.column}"

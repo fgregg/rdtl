@@ -660,3 +660,23 @@ def test_include_with_context_var_named_url():
 
     include = next(c for c in ast.children if isinstance(c, ast_nodes.IncludeTag))
     assert "url" in include.context_vars
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "</div>",
+        "</div >",
+        "text</span>",
+        "{% if cond %}</div>{% endif %}",
+    ],
+)
+def test_stray_closing_tag_raises(template):
+    """An unmatched closing tag must raise, not hang.
+
+    Regression: parse_element() used to return None for a stray HTML_CLOSE_TAG
+    without consuming the token, so the parse loop (which only advances when a
+    token is consumed) spun forever.
+    """
+    with pytest.raises(ParseError, match="closing tag"):
+        parse(template)
