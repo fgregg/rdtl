@@ -1,37 +1,52 @@
-// Lark Grammar for RDTL - Verification and Basic Generation
+// Lark Grammar for RDTL - Verification and Test Generation
 // ===========================================================
 //
 // PURPOSE:
 //   This grammar is used for:
 //   1. Structure verification (defining valid RDTL syntax)
 //   2. Parser agreement testing (comparing Lark vs manual parser)
-//   3. Basic template generation (via Hypothesis + Lark)
+//   3. Test-case generation (via Hypothesis + Lark, see test_property_based.py
+//      and test_grammar_with_django.py)
+//
+// SOUNDNESS, NOT COMPLETENESS:
+//   This grammar is intentionally a *subset* of what the hand-written RDTL
+//   parser accepts. Its job is to GENERATE templates that are guaranteed to be
+//   valid, so the property-based tests can assert that every generated template
+//   parses (and that Django agrees). It does NOT try to describe every legal
+//   template - e.g. it only emits a single canonical whitespace form, a handful
+//   of HTML tags, and library/tag constructs that plain Django accepts.
+//
+// WHY WHITESPACE IS EXPLICIT (no `%ignore WS`):
+//   An earlier version used `%ignore WS`, which let Hypothesis generate strings
+//   the real parser rejects:
+//     - merged word tokens: `{%ifx%}`, `with url=...` -> `withurl=...`
+//     - whitespace where the lexer forbids it: `< div>`, `<br / >`
+//   Both come from whitespace being freely insertable/removable. Here WS is a
+//   real, required terminal placed only where the parser allows it. The test
+//   harness binds WS to a single space (explicit={"WS": st.just(" ")}), so
+//   generation always emits canonical, parseable spacing.
+//
+//   To keep the grammar LALR(1) (the tests build it with parser="lalr"), binary
+//   operators bake their surrounding spaces into the terminal itself (e.g.
+//   " == ", " and ", " | "). That way the parser decides what follows an operand
+//   on a distinct terminal rather than on a shared, ambiguous WS token.
+//
+// WHY HTML TAGS ARE ENUMERATED:
+//   A context-free grammar cannot require a closing tag name to match its
+//   opening tag name, so a generic `"<" NAME ... "</" NAME ">"` rule happily
+//   generates `<b></a>`, which the parser correctly rejects. Listing a small set
+//   of concrete tags makes open and close literally the same string, so every
+//   generated element is well-formed.
 //
 // LIMITATION - NESTED QUOTES:
-//   This grammar CANNOT express the nested quote feature:
+//   This grammar cannot express the nested-quote feature, e.g.
 //       <div title="{% trans "that's all folks" %}">
+//   The manual RDTL lexer uses STATEFUL parsing for that; Lark's regex-based
+//   lexing cannot track "inside attribute -> inside template -> inside string".
+//   Such cases are covered by the custom Hypothesis strategies in
+//   test_property_based.py instead.
 //
-//   The manual RDTL lexer uses STATEFUL parsing to handle this:
-//   - Tracks which quote type started the attribute
-//   - Tracks when inside template tag/variable
-//   - Tracks when inside string literal within template
-//
-//   Lark uses REGEX-BASED (stateless) lexing which cannot:
-//   - Remember what quote started the attribute
-//   - Distinguish "attribute-ending quote" from "string-literal quote"
-//   - Track nested state (inside template → inside string)
-//
-// TEST GENERATION STRATEGY:
-//   - Use this Lark grammar to generate ~90% of test cases
-//   - Use custom Hypothesis strategies for nested quotes (see test_property_based.py)
-//   - Combined approach gives 100% coverage
-//
-// GRAMMAR PROPERTIES:
-//   - Parser Grammar: Context-Free (tokens → AST)
-//   - Language Grammar: Context-Sensitive (characters → AST, due to stateful lexer)
-//   - This Lark grammar models the parser grammar (context-free part)
-//
-// See THEORY.md for detailed explanation of CFG properties.
+// See THEORY.md for the CFG vs context-sensitive discussion.
 
 ?start: document
 
@@ -43,136 +58,153 @@ document: element*
         | template_single_tag
         | TEXT
 
-// HTML Elements
-html_element: open_tag element* close_tag
+// ----------------------------------------------------------------------------
+// HTML elements
+// ----------------------------------------------------------------------------
+// Tags are enumerated so the open and close names always match (see header).
+
+html_element: div_element
+            | p_element
+            | span_element
+            | section_element
+            | li_element
             | void_element
 
-open_tag: "<" TAG_NAME attribute* ">"
-close_tag: "</" TAG_NAME ">"
-void_element: "<" TAG_NAME attribute* "/>"
+div_element:     "<div" attributes ">" element* "</div>"
+p_element:       "<p" attributes ">" element* "</p>"
+span_element:    "<span" attributes ">" element* "</span>"
+section_element: "<section" attributes ">" element* "</section>"
+li_element:      "<li" attributes ">" element* "</li>"
 
-attribute: ATTR_NAME ["=" attr_value]
+void_element: "<br" attributes "/>"
+            | "<hr" attributes "/>"
+            | "<img" attributes "/>"
+            | "<input" attributes "/>"
 
-// Attribute values can contain mixed content: text, variables, and template tags
-//
-// LIMITATION: This Lark grammar uses regex-based lexing which cannot properly
-// model the stateful quote tracking that the actual RDTL lexer implements.
-//
-// The real lexer tracks:
-// - When inside template tags/variables within attribute values
-// - When inside string literals within those templates
-// - Proper handling of escape sequences
-//
-// This allows: title="{% trans "that's all folks" %}"
-//
-// The Lark grammar below is simplified and does NOT support nested quotes.
-// It's kept for basic grammar verification but is not a complete specification.
-attr_value: QUOTED_STRING
+// Each attribute is preceded by whitespace; the name hugs "<tagname" via that
+// space, and there is never a space after "<" or inside "/>".
+attributes: (WS attribute)*
+attribute: ATTR_NAME "=" attr_value
+         | ATTR_NAME
 
-// Template Variables
-template_variable: "{{" expression filter_chain? "}}"
+attr_value: STRING
 
-filter_chain: ("|" filter)+
+// ----------------------------------------------------------------------------
+// Template variables:  {{ expr }}  /  {{ expr | filter }}
+// ----------------------------------------------------------------------------
+template_variable: "{{" WS expression_or_filtered WS "}}"
 
-filter: IDENTIFIER [":" filter_arg ("," filter_arg)*]
+expression_or_filtered: expression filter_chain?
 
-filter_arg: QUOTED_STRING | NUMBER | IDENTIFIER
+filter_chain: (FILTER_PIPE filter)+
+filter: IDENTIFIER filter_args?
+filter_args: ":" filter_arg ("," filter_arg)*
+filter_arg: STRING | NUMBER | IDENTIFIER
 
-// Template Blocks
+// ----------------------------------------------------------------------------
+// Template blocks
+// ----------------------------------------------------------------------------
 template_block: if_block
               | for_block
               | with_block
 
 if_block: if_open element* elif_part* else_part? if_close
 
-if_open: "{%" "if" condition "%}"
-elif_part: "{%" "elif" condition "%}" element*
-else_part: "{%" "else" "%}" element*
-if_close: "{%" "endif" "%}"
+if_open:   "{%" WS "if" WS condition WS "%}"
+elif_part: "{%" WS "elif" WS condition WS "%}" element*
+else_part: "{%" WS "else" WS "%}" element*
+if_close:  "{%" WS "endif" WS "%}"
 
 for_block: for_open element* empty_part? for_close
 
-for_open: "{%" "for" loop_vars "in" expression "%}"
-loop_vars: IDENTIFIER ("," IDENTIFIER)*
-empty_part: "{%" "empty" "%}" element*
-for_close: "{%" "endfor" "%}"
+for_open:   "{%" WS "for" WS loop_vars WS "in" WS expression WS "%}"
+loop_vars:  IDENTIFIER ("," WS IDENTIFIER)*
+empty_part: "{%" WS "empty" WS "%}" element*
+for_close:  "{%" WS "endfor" WS "%}"
 
 with_block: with_open element* with_close
 
-with_open: "{%" "with" with_assignment+ "%}"
+with_open:       "{%" WS "with" (WS with_assignment)+ WS "%}"
 with_assignment: IDENTIFIER "=" expression_or_filtered
-with_close: "{%" "endwith" "%}"
+with_close:      "{%" WS "endwith" WS "%}"
 
-// Template Single Tags
-// Note: Custom blocks/tags require two-phase parsing (not expressible in pure CFG)
-// Note: In practice, any tag NOT matching a block tag is treated as simple
+// ----------------------------------------------------------------------------
+// Single (self-closing) template tags
+// ----------------------------------------------------------------------------
+// Only tags that plain Django accepts without a preceding {% load %} are
+// generated. (The {% static %} tag, for instance, requires {% load static %}
+// first, so Django rejects it on its own - we therefore don't generate it,
+// even though the RDTL parser handles it fine.)
+
 template_single_tag: include_tag
-                   | trans_tag
                    | load_tag
                    | extends_tag
                    | url_tag
-                   | static_tag
                    | cycle_tag
                    | csrf_token_tag
                    | debug_tag
 
-include_tag: "{%" "include" QUOTED_STRING ("with" context_assignment+)? "%}"
+include_tag: "{%" WS "include" WS STRING (WS "with" (WS kwarg)+)? WS "%}"
 
-context_assignment: IDENTIFIER "=" expression
+kwarg: IDENTIFIER "=" expression
 
-trans_tag: "{%" "trans" TRANS_CONTENT "%}"
+// Django only knows a fixed set of bundled tag libraries; loading an unknown
+// one is a syntax error, so generation is restricted to real library names.
+load_tag: "{%" WS "load" (WS LIBRARY)+ WS "%}"
+LIBRARY: "static" | "i18n" | "l10n" | "tz" | "cache"
 
-TRANS_CONTENT: /[^%]+/
+extends_tag: "{%" WS "extends" WS STRING WS "%}"
 
-// Specific tags with their semantic requirements
-load_tag: "{%" "load" IDENTIFIER+ "%}"  // Requires at least one library name
+url_tag: "{%" WS "url" WS url_target (WS kwarg)* (WS "as" WS IDENTIFIER)? WS "%}"
+url_target: STRING | IDENTIFIER
 
-extends_tag: "{%" "extends" QUOTED_STRING "%}"  // Requires template path
+cycle_tag: "{%" WS "cycle" (WS cycle_value)+ (WS "as" WS IDENTIFIER)? WS "%}"
+cycle_value: STRING | NUMBER | IDENTIFIER
 
-url_tag: "{%" "url" IDENTIFIER TAG_ARGS? "%}"  // Requires view name, optional args
+csrf_token_tag: "{%" WS "csrf_token" WS "%}"
 
-static_tag: "{%" "static" QUOTED_STRING "%}"  // Requires path
+debug_tag: "{%" WS "debug" WS "%}"
 
-cycle_tag: "{%" "cycle" TAG_ARGS "%}"  // Requires arguments
+// ----------------------------------------------------------------------------
+// Expressions and conditions
+// ----------------------------------------------------------------------------
+// Django uses dot notation only (user.name, items.0); bracket notation and
+// spaces around dots are invalid, so LOOKUP hugs the dot with no whitespace.
 
-csrf_token_tag: "{%" "csrf_token" "%}"  // No arguments
-
-debug_tag: "{%" "debug" "%}"  // No arguments
-
-TAG_ARGS: /[^%]+/
-
-// Expressions and Conditions
-// Django only supports dot notation: user.name, items.0
-// Bracket notation like items[0] is NOT supported
-// No spaces allowed around dots: "user . name" is invalid
 expression: IDENTIFIER LOOKUP*
-          | QUOTED_STRING
+          | STRING
           | NUMBER
 
-expression_or_filtered: expression filter_chain?
+// Boolean/comparison operators carry their own surrounding spaces so the parser
+// never has to disambiguate on a bare WS token (keeps the grammar LALR(1)).
+condition: bool_term (BOOL_OP bool_term)*
+bool_term: NOT? comparand (COMPARATOR comparand)?
+comparand: expression_or_filtered
 
-condition: simple_condition (("and" | "or") simple_condition)*
+NOT: "not "
+BOOL_OP: " and " | " or "
+COMPARATOR: " == " | " != " | " <= " | " >= " | " < " | " > " | " in " | " is not " | " is "
+FILTER_PIPE: " | "
 
-simple_condition: "not"? (comparison | expression_or_filtered)
-
-comparison: expression_or_filtered comparator expression_or_filtered
-
-comparator: "==" | "!=" | "<=" | ">=" | "<" | ">" | "in" | "is" "not" | "is"
-
-// Lexer Rules
-TAG_NAME: /[a-zA-Z][a-zA-Z0-9]*/
+// ----------------------------------------------------------------------------
+// Terminals
+// ----------------------------------------------------------------------------
 ATTR_NAME: /[a-zA-Z_@:][-a-zA-Z0-9_:@.]*/
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
 NUMBER: /-?\d+(\.\d+)?/
-QUOTED_STRING: /"[^"]*"/ | /'[^']*'/
 
-// Lookup - dot followed immediately by identifier or number (no spaces)
-LOOKUP: /\.[a-zA-Z_][a-zA-Z0-9_]*/  // .identifier
-      | /\.\d+/                      // .number (for list indices like items.0)
+// Strings used inside template tags must not contain characters that would let
+// a re-lexer (RDTL's or Django's) mistake their contents for tag/variable
+// delimiters or operators: % { } | < > and quotes/backslash.
+STRING: /"[^"%{}|<>\\]*"/ | /'[^'%{}|<>\\]*'/
 
-// Text content
+// Lookup: a dot immediately followed by an identifier or a numeric index.
+LOOKUP: /\.[a-zA-Z_][a-zA-Z0-9_]*/
+      | /\.\d+/
+
+// Plain text between markup. Excludes "<" and "{" so generated text can never
+// accidentally open an HTML or template construct.
 TEXT: /[^<{]+/
 
-// Ignore whitespace in template tags
-%import common.WS
-%ignore WS
+// Required whitespace. The test harness binds this to a single space.
+WS: /[ \t\r\n]+/

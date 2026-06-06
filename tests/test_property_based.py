@@ -7,6 +7,7 @@ This module uses Hypothesis to generate random RDTL templates and test:
 3. Formatter idempotence: format(format(x)) == format(x)
 """
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -15,9 +16,53 @@ from hypothesis import strategies as st
 from hypothesis.extra.lark import from_lark
 from lark import Lark
 
+from rdtl import ast_nodes
 from rdtl.formatter import format_template
 from rdtl.parser import parse
 from rdtl.validator import validate_template
+
+# Position fields are source coordinates, not structure; they legitimately
+# change when a template is reformatted.
+_POSITION_FIELDS = {"lineno", "col_offset", "end_lineno", "end_col_offset"}
+
+
+def ast_signature(node):
+    """Return a hashable structural signature of an AST node.
+
+    Used to compare templates across a parse -> format -> parse round-trip. It
+    deliberately ignores things the formatter is free to change without altering
+    meaning:
+
+    - source positions (lineno/col_offset/...),
+    - pure-whitespace text nodes (the formatter adds/removes newlines and
+      indentation, e.g. a trailing newline or blank lines between block tags),
+    - runs of insignificant whitespace inside text (collapsed to one space).
+
+    Everything else - node types, nesting, tag/variable/filter contents - is
+    preserved, so the comparison still catches real structural drift.
+    """
+    if isinstance(node, ast_nodes.TextNode):
+        return ("TextNode", " ".join(node.content.split()))
+
+    if isinstance(node, ast_nodes.ASTNode):
+        fields = tuple(
+            (f.name, ast_signature(getattr(node, f.name)))
+            for f in dataclasses.fields(node)
+            if f.name not in _POSITION_FIELDS
+        )
+        return (type(node).__name__, fields)
+
+    if isinstance(node, (list, tuple)):
+        items = []
+        for item in node:
+            # Drop whitespace-only text nodes wherever they appear as children.
+            if isinstance(item, ast_nodes.TextNode) and not item.content.strip():
+                continue
+            items.append(ast_signature(item))
+        return tuple(items)
+
+    return node
+
 
 # ============================================================================
 # Test Strategies
@@ -295,10 +340,11 @@ class TestGrammarGeneration:
         # Parse formatted
         ast2 = parse(formatted)
 
-        # Should be structurally equivalent
-        assert str(ast1) == str(
+        # Should be structurally equivalent (ignoring formatter-managed
+        # whitespace and source positions).
+        assert ast_signature(ast1) == ast_signature(
             ast2
-        ), f"Roundtrip failed:\nOriginal: {template}\nFormatted: {formatted}"
+        ), f"Roundtrip failed:\nOriginal: {template!r}\nFormatted: {formatted!r}"
 
         print(f"✓ Roundtrip successful for: {template[:50]}...")
 

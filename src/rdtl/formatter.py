@@ -351,12 +351,19 @@ class Formatter(ast_nodes.ASTVisitor):
             self.write(f"</{tag}>")
             self.writeln()
         else:
-            # Inline formatting
-            for child in node.children:
-                if isinstance(child, ast_nodes.TextNode):
-                    self.output.append(child.content)
-                else:
-                    self.visit(child)
+            # Inline formatting. Enter inline context so nested elements (e.g. a
+            # void <br />) don't emit their own block newlines, which would
+            # otherwise be re-absorbed as whitespace text nodes and accumulate a
+            # blank line on every format pass (breaking idempotence).
+            self.inline_context_depth += 1
+            try:
+                for child in node.children:
+                    if isinstance(child, ast_nodes.TextNode):
+                        self.output.append(child.content)
+                    else:
+                        self.visit(child)
+            finally:
+                self.inline_context_depth -= 1
 
             self.output.append(f"</{tag}>")
             # Only add newline if not in inline context
@@ -424,6 +431,14 @@ class Formatter(ast_nodes.ASTVisitor):
         # If it's just whitespace, skip it (parent handles spacing)
         if not content.strip():
             return
+
+        # At the start of a line, leading whitespace is just indentation that
+        # the formatter manages itself. Strip it so formatting is idempotent: a
+        # text node that follows a block element (which already emits a newline)
+        # would otherwise re-absorb that newline and accumulate a blank line on
+        # every pass (e.g. "<div></div>0" -> "...\n0" -> "...\n\n0").
+        if self.needs_indent:
+            content = content.lstrip()
 
         self.write(content)
 
