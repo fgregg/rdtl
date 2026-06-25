@@ -111,6 +111,18 @@ class Parser:
             TokenType.STATIC,
             TokenType.AS,
             TokenType.BY,
+            # Boolean/comparison operator words. Django treats these as ordinary
+            # variable names outside operator position — ``{{ or }}``,
+            # ``{{ x|add:and }}`` and ``{% for in in items %}`` all resolve them
+            # as plain names. The condition parser checks the operator tokens
+            # explicitly at each precedence level before any expression is read,
+            # so accepting them as identifiers here never shadows their operator
+            # role in ``{% if a and b %}``.
+            TokenType.AND,
+            TokenType.OR,
+            TokenType.NOT,
+            TokenType.IS,
+            TokenType.IN,
         }
     )
 
@@ -684,8 +696,8 @@ class Parser:
         # Expect 'in'
         self.expect(TokenType.IN)
 
-        # Parse iterable
-        iterable = self.parse_expression()
+        # Parse iterable (filters allowed, e.g. {% for x in items|slice:":2" %})
+        iterable = self.parse_expression_with_filters()
 
         self.expect(TokenType.TEMPLATE_TAG_END)
 

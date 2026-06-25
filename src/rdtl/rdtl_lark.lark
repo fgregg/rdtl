@@ -96,10 +96,31 @@ template_variable: "{{" WS expression_or_filtered WS "}}"
 
 expression_or_filtered: expression filter_chain?
 
+// Filters are enumerated by their parse-time arity so generation stays sound.
+// Django validates filter names against its registry AND checks argument count
+// when it compiles the template, so a generic `IDENTIFIER (":" arg)?` rule emits
+// templates Django rejects ("Invalid filter", "X requires N arguments"). Listing
+// only real built-ins, split into the no-argument and one-argument forms, keeps
+// every generated filter something Django actually accepts. Django built-ins
+// take at most one argument, so there is no comma-separated argument list.
 filter_chain: (FILTER_PIPE filter)+
-filter: IDENTIFIER filter_args?
-filter_args: ":" filter_arg ("," filter_arg)*
+filter: FILTER_NOARG
+      | FILTER_ONEARG ":" filter_arg
 filter_arg: STRING | NUMBER | IDENTIFIER
+
+// Built-ins that take no argument (also covers filters whose argument is
+// optional, e.g. floatformat/date - the no-arg form always parses).
+FILTER_NOARG: "upper" | "lower" | "title" | "capfirst" | "length" | "first"
+            | "last" | "escape" | "force_escape" | "safe" | "striptags"
+            | "wordcount" | "slugify" | "addslashes" | "random" | "make_list"
+            | "escapejs" | "linebreaks" | "linebreaksbr" | "linenumbers"
+            | "urlencode" | "floatformat" | "date" | "time" | "pluralize" | "yesno"
+
+// Built-ins that require exactly one argument.
+FILTER_ONEARG: "default" | "default_if_none" | "add" | "slice" | "join"
+             | "truncatewords" | "truncatechars" | "cut" | "ljust" | "rjust"
+             | "center" | "get_digit" | "divisibleby" | "stringformat"
+             | "dictsort" | "dictsortreversed"
 
 // ----------------------------------------------------------------------------
 // Template blocks
@@ -117,7 +138,7 @@ if_close:  "{%" WS "endif" WS "%}"
 
 for_block: for_open element* empty_part? for_close
 
-for_open:   "{%" WS "for" WS loop_vars WS "in" WS expression WS "%}"
+for_open:   "{%" WS "for" WS loop_vars WS "in" WS expression_or_filtered WS "%}"
 loop_vars:  IDENTIFIER ("," WS IDENTIFIER)*
 empty_part: "{%" WS "empty" WS "%}" element*
 for_close:  "{%" WS "endfor" WS "%}"

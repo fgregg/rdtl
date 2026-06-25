@@ -162,6 +162,36 @@ def test_generated_templates_statistics(data):
     assert category in ["both_accept", "both_reject", "django_only", "rdtl_only"]
 
 
+@pytest.mark.slow
+@given(st.data())
+@hypothesis_settings(max_examples=100, deadline=None)
+@seed(2024)
+def test_generated_templates_are_faithful(data):
+    """The grammar is a faithful generator: every template it produces is valid.
+
+    Because filter names are enumerated real built-ins split by parse-time arity
+    (see rdtl_lark.lark), generation should never emit a template that Django
+    rejects for syntax, and RDTL must accept all of them too. This locks in the
+    soundness gain - if the grammar regresses to emitting Django-invalid filters
+    (e.g. unknown names or wrong argument counts), this test fails.
+    """
+    template_str = data.draw(get_template_strategy())
+    assume(template_str.strip() != "")
+
+    result = compare_parsers(template_str)
+
+    assert result["django_accepts"], (
+        f"Grammar generated a template Django rejects:\n"
+        f"Template: {repr(template_str)}\n"
+        f"Django error: {result['django_error']}"
+    )
+    assert result["rdtl_accepts"], (
+        f"Grammar generated a template RDTL rejects:\n"
+        f"Template: {repr(template_str)}\n"
+        f"RDTL error: {result['rdtl_error']}"
+    )
+
+
 # Specific Django feature tests
 
 

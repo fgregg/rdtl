@@ -256,7 +256,9 @@ class ForBlock(ASTNode):
     loop_vars: list[str] = field(
         default_factory=list
     )  # Variable names (supports tuple unpacking)
-    iterable: "Expression | Literal | None" = None  # What we're iterating over
+    iterable: "Expression | Literal | FilteredExpression | None" = (
+        None  # What we're iterating over
+    )
     children: list[ASTNode] = field(default_factory=list)
     empty_children: list[ASTNode] | None = None
 

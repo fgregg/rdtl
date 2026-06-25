@@ -129,6 +129,41 @@ def test_variable_with_filter():
     assert len(var.filters[0].args) == 0
 
 
+@pytest.mark.parametrize("word", ["or", "and", "not", "is", "in"])
+def test_operator_keyword_as_variable(word):
+    """Operator words are valid variable names, as Django treats them.
+
+    Outside operator position Django resolves ``or``/``and``/``not``/``is``/``in``
+    as ordinary variables (``{{ or }}`` renders the context value), so RDTL must
+    accept them as identifiers too. See KEYWORD_TOKEN_TYPES.
+    """
+    ast = parse("{{ " + word + " }}")
+    var = ast.children[0]
+    assert var.expression.base == word
+
+
+@pytest.mark.parametrize("word", ["or", "and", "not", "is", "in"])
+def test_operator_keyword_as_filter_arg(word):
+    """Operator words are valid filter arguments (variable references)."""
+    ast = parse("{{ x|add:" + word + " }}")
+    var = ast.children[0]
+    assert var.filters[0].name == "add"
+    assert var.filters[0].args[0].base == word
+
+
+def test_operator_keyword_does_not_shadow_condition_operators():
+    """Accepting operator words as identifiers must not break real conditions."""
+    # Boolean and comparison operators still parse as operators in conditions.
+    for template in (
+        "{% if a and b %}x{% endif %}",
+        "{% if a or b %}x{% endif %}",
+        "{% if not a %}x{% endif %}",
+        "{% if a is not b %}x{% endif %}",
+        "{% if a in b %}x{% endif %}",
+    ):
+        assert parse(template) is not None
+
+
 def test_variable_with_filter_args():
     """Test variable with filter arguments."""
     template = '{{ date|date:"Y-m-d" }}'
@@ -260,6 +295,25 @@ def test_for_loop_with_empty():
 
     assert for_block is not None
     assert for_block.empty_children is not None
+
+
+def test_for_loop_with_filtered_iterable():
+    """Test for loop whose iterable has a filter (e.g. items|slice:":2")."""
+    template = '{% for x in items|slice:":2" %}{{ x }}{% endfor %}'
+    ast = parse(template)
+
+    for_block = None
+    for child in ast.children:
+        if isinstance(child, ast_nodes.ForBlock):
+            for_block = child
+            break
+
+    assert for_block is not None
+    assert for_block.loop_vars == ["x"]
+    assert isinstance(for_block.iterable, ast_nodes.FilteredExpression)
+    assert for_block.iterable.expression.base == "items"
+    assert len(for_block.iterable.filters) == 1
+    assert for_block.iterable.filters[0].name == "slice"
 
 
 def test_block_tag():
